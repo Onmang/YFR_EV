@@ -1,6 +1,5 @@
 //ID別 全表示
 
-
 #include <mcp_can.h>
 #include <SPI.h>
 
