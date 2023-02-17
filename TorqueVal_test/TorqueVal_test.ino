@@ -1,27 +1,23 @@
 //ポテションメータのトルク値変換
 
-const int INPUT_PIN = 0;
-int val = 0;
-float Torque;
+const int INPUT_PIN = 0;  //アナログ入力ピン
+int Val = 0;
 
 void setup() {
   Serial.begin(9600);
 }
 
 void loop() {
-  val = analogRead(INPUT_PIN);
+  Val = analogRead(INPUT_PIN);
+  
+  float a = 120.0 / 1023.0;  //傾き,120:最大トルク60の2倍
+  int y = a * Val;             //トルク範囲に置き換える0～120
+  float Torque = 0.5 * y;  //トルク値, 0～60
 
-  float y = val * 120/1023;  //0～120に置き換える
-  int z = round(y);              //yを丸める
-  Torque = 0.5 * z;              //トルク値, 0～60
-
-  Serial.print("val: ");
-  Serial.print(val);
-
+  Serial.print("Val: ");
+  Serial.print(Val);
   Serial.print("   y:");
   Serial.print(y);
-  Serial.print("   z:");
-  Serial.print(z);
   Serial.print("   Torque:");
   Serial.print(Torque);
   Serial.println(" [Nm]");
