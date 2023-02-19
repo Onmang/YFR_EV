@@ -7,6 +7,7 @@ int Val = 0;  //アナログ入力の変数
 
 void setup() {
   Serial.begin(9600);
+  Val = analogRead(INPUT_PIN);
   if (CAN.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ) == CAN_OK) {
     CAN.setMode(MCP_NORMAL);
   } else {
@@ -17,7 +18,7 @@ void setup() {
 void loop() {
   static byte buf[] = { B00000001, 0, 0, 0, 0, 0, 0, 0 };  //0byte目はMG-ECU:on, Co放電要求:off 固定
 
-  Val = analogRead(INPUT_PIN);
+  
   float AnaMin = 1023.0 * 0.1;          //出力関数：0°＝10%
   float AnaMax = 1023.0 * 0.9;          //出力関数：360°＝90%
   float a = 120.0 / (AnaMax - AnaMin);  //傾き,120:最大トルク60の2倍
