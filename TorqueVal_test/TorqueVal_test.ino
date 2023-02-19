@@ -3,7 +3,7 @@
 #include <SPI.h>
 MCP_CAN CAN(10);
 const int INPUT_PIN = 0;  //アナログ入力ピン
-int Val = 0;
+int Val = 0;  //アナログ入力の変数
 
 void setup() {
   Serial.begin(9600);
