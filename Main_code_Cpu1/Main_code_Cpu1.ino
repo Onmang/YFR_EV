@@ -139,6 +139,7 @@ void loop() {
         if (Op_status == B011) {  //torque control状態か？
           //"トルク値CAN送信プログラム"
           byte buf_s[] = { B01, 0, 0, 0, 0, 0, 0, 0 };  //0byte目はMG-ECU:on, Co放電要求:off 固定
+          val = analogRead(APPS_PIN);
           float AnaMin = 1023.0 * 0.1;                  //出力関数：0°＝10%
           float AnaMax = 1023.0 * 0.9;                  //出力関数：360°＝90%
           float a = 120.0 / (AnaMax - AnaMin);          //傾き,120:最大トルク60の2倍
