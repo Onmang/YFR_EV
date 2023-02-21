@@ -13,6 +13,12 @@ const int Precharge_PIN = 4;  //Precharge制御マイコンのデジタル入力
 
 const int APPS_PIN = 0;  //APPS,アナログ入力ピン
 int val = 0;             //APPS,アナログ入力の変数
+float min = 1024 * 0.1;  //APPS,PST360-G2 出力関数：0°＝10%
+float max = 1024 * 0.9;  //APPS,PST360-G2 出力関数：360°＝90%
+int deg_0 = 20;          //APPS,作動開始角度
+int deg_m = 40;          //APPS,作動限界角度
+int TorMin = 0;          //APPS,入力トルク下限
+int TorMax = 60;         //APPs,入力トルク上限
 
 void setup() {
   Serial.begin(9600);
@@ -140,13 +146,11 @@ void loop() {
           //"トルク値CAN送信プログラム"
           byte buf_s[] = { B01, 0, 0, 0, 0, 0, 0, 0 };  //0byte目はMG-ECU:on, Co放電要求:off 固定
           val = analogRead(APPS_PIN);
-          float AnaMin = 1023.0 * 0.1;                  //出力関数：0°＝10%
-          float AnaMax = 1023.0 * 0.9;                  //出力関数：360°＝90%
-          float a = 120.0 / (AnaMax - AnaMin);          //傾き,120:最大トルク60の2倍
-          float b = -a * AnaMin;
 
-          int y = a * val + b;     //トルク範囲に置き換える0～120
-          float Torque = 0.5 * y;  //トルク値, 0～60
+          int deg = map(val, min, max, 0, 359);                    //アナログ入力値を角度に置き換え
+          int deg_in = constrain(deg, deg_0, deg_m);               //角度の範囲を制限
+          int Torque = map(deg_in, deg_0, deg_m, TorMin, TorMax);  //角度をトルク値に変換
+
           buf_s[1] = Torque;
           CAN.sendMsgBuf(0x301, 0, 8, buf_s);  //トルク値CAN送信
 
