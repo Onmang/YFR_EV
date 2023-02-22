@@ -42,7 +42,8 @@ void loop() {
 
   unsigned short Motor_cur, Voltage, Anomaly_sig;
   short Motor_rev;
-  unsigned short Mg_ecu, Op_status, Gate_sta;
+  unsigned short Gate_sta;
+  static unsigned short Mg_ecu, Op_status;
   unsigned char sndStat;
 
   int IGNSWsta = digitalRead(IGNSW_PIN);  //IGNSWの状態，HIGH or LOW
@@ -141,34 +142,34 @@ void loop() {
             }
           }
         }
-      } else if (IGNSWsta == HIGH) {
-        if (Op_status == B011) {  //torque control状態か？
-          //"トルク値CAN送信プログラム"
-          byte buf_s[] = { B01, 0, 0, 0, 0, 0, 0, 0 };  //0byte目はMG-ECU:on, Co放電要求:off 固定
-          val = analogRead(APPS_PIN);
+      }
+    }
+  } else if (IGNSWsta == HIGH) {
+    if (Op_status == B011) {  //torque control状態か？
+      //"トルク値CAN送信プログラム"
+      byte buf_s[] = { B01, 0, 0, 0, 0, 0, 0, 0 };  //0byte目はMG-ECU:on, Co放電要求:off 固定
+      val = analogRead(APPS_PIN);
 
-          int deg = map(val, min, max, 0, 359);                    //アナログ入力値を角度に置き換え
-          int deg_in = constrain(deg, deg_0, deg_m);               //角度の範囲を制限
-          int Torque = map(deg_in, deg_0, deg_m, TorMin, TorMax);  //角度をトルク値に変換
+      int deg = map(val, min, max, 0, 359);                    //アナログ入力値を角度に置き換え
+      int deg_in = constrain(deg, deg_0, deg_m);               //角度の範囲を制限
+      int Torque = map(deg_in, deg_0, deg_m, TorMin, TorMax);  //角度をトルク値に変換
 
-          buf_s[1] = Torque;
-          CAN.sendMsgBuf(0x301, 0, 8, buf_s);  //トルク値CAN送信
+      buf_s[1] = Torque;
+      CAN.sendMsgBuf(0x301, 0, 8, buf_s);  //トルク値CAN送信
 
-        } else if (Op_status == B001) {  //Precharge状態か？
-          int Presta = digitalRead(Precharge_PIN);
-          if (Presta = HIGH) {  //Cpu5:precharge制御は完了か？
-            if (ECUsta != 1) {  //MG-ECU"ON"ではないなら以下を実行
-              //"MG-ECU"ON"送信"
-              byte buf_s[] = { B01, 0, 0, 0, 0, 0, 0, 0 };
-              sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);  //ID:0x02, 標準フレーム:0, データ長:8
-              if (sndStat == CAN_OK) {
-                Serial.println("MG-ECU : ON");
-                ECUsta = 1;
-              } else {
-                Serial.println("Error Sending Message...");
-                ECUsta = 0;
-              }
-            }
+    } else if (Op_status == B001) {  //Precharge状態か？
+      int Presta = digitalRead(Precharge_PIN);
+      if (Presta == HIGH) {  //Cpu5:precharge制御は完了か？
+        if (ECUsta != 1) {   //MG-ECU"ON"ではないなら以下を実行
+          //"MG-ECU"ON"送信"
+          byte buf_s[] = { B01, 0, 0, 0, 0, 0, 0, 0 };
+          sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);  //ID, 標準フレーム:0, データ長:8
+          if (sndStat == CAN_OK) {
+            Serial.println("MG-ECU : ON");
+            ECUsta = 1;
+          } else {
+            Serial.println("Error Sending Message...");
+            ECUsta = 0;
           }
         }
       }
