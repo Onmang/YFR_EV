@@ -45,6 +45,7 @@ void loop() {
   }
   status = B111;  //rapid discharge
   if (IGNSWsta == LOW) {
+    disoder = bitRead(buf_r[0], 1);
     if (dispat == 0) {
       if (presen != 1) {
         byte buf_s[] = { 0xA, 0xB0, 0x36, 0x4, 0, 0, 0, 0 };
@@ -88,6 +89,7 @@ void loop() {
       }
     }
   } else if (IGNSWsta == HIGH) {
+    MG_ECU = bitRead(buf_r[0], 0);
     status = B001;  //precharge
     if (status == B001) {
       byte buf_s[] = { 0xA, 0, 0, 0, 0, 0, 0, 0 };
@@ -98,8 +100,8 @@ void loop() {
         Serial.println("Error Sending Message...");
       }
       if (MG_ECU == 1) {
-        status = B011;  //torque control
-        byte buf_s[] = { B011100, 0, 0, 0, B10010000, B00000001, 0, 0 }; //400V
+        status = B011;                                                    //torque control
+        byte buf_s[] = { B011100, 0, 0, 0, B10010000, B00000001, 0, 0 };  //400V
         if (sndStat == CAN_OK) {
           Serial.println("Successfully Sent, Torque control");
         } else {
