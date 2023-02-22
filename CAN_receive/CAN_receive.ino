@@ -26,7 +26,7 @@ void loop() {
     Serial.print(" DATA");
     for (byte i = 0; i < len; i++) {
       Serial.print(":");
-      Serial.print(buf[i], DEC);
+      Serial.print(buf[i], HEX);
     }
     Serial.println();
   }//delay(500);
