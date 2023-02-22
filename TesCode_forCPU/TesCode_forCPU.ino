@@ -99,6 +99,7 @@ void loop() {
       }
       if (MG_ECU == 1) {
         status = B011;  //torque control
+        byte buf_s[] = { B011100, 0, 0, 0, B10010000, B00000001, 0, 0 }; //400V
         if (sndStat == CAN_OK) {
           Serial.println("Successfully Sent, Torque control");
         } else {
@@ -107,7 +108,7 @@ void loop() {
       }
     } else if (status == B011) {
       if (MG_ECU == 1) {
-        byte buf_s[] = { 0xA, 0, 0, 0, 0, 0, 0, 0 };
+        byte buf_s[] = { B011100, 0, 0, 0, B10010000, B00000001, 0, 0 };
         CAN.sendMsgBuf(0x311, 0, 8, buf_s);
         Serial.print("torque:");
         Serial.print(torque, DEC);
