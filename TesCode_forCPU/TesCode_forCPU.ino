@@ -22,7 +22,7 @@ void setup() {
 }
 
 void loop() {
-  static char val;
+  static byte ignsw;
   static byte MG_ECU;      //Mg-ECU実行要求，ON：1，OFF：0
   static byte dispat = 0;  //dischargeのパターン，0：初期化後，1：高電圧印加後（通常時）
   static byte presen = 0;
@@ -36,19 +36,20 @@ void loop() {
   byte len;              //フレームの長さ
   static byte buf_r[8];  //CAN通信受信バッファ
 
-  val = Serial.read();
-  do {
-    Serial.println("DO-while");
-  } while (val == '0');
+  char val = Serial.read();
 
-  if (val == '0') {  //IGNSW : LOW
+  if (val == '0') {
+    ignsw = 0;
+  } else if (val == '1') {
+    ignsw = 1;
+  }
+  if (ignsw == 0) {
     digitalWrite(presta, LOW);
     digitalWrite(toCPU1, LOW);
     Serial.println("TS : now OFF");
-    do {
-      CAN.readMsgBuf(&id, &len, buf_r);
-      MG_ECU = bitRead(buf_r[0], 0);
-    } while (CAN.checkReceive() == CAN_MSGAVAIL);
+
+    CAN.readMsgBuf(&id, &len, buf_r);
+    MG_ECU = bitRead(buf_r[0], 0);
     if (MG_ECU == 0) {  //MG-ECU : off?
       if (dispat == 1) {
         status == B111;                                                //rapid discharge状態
@@ -59,28 +60,22 @@ void loop() {
         } else {
           Serial.println("Error...");
         }
-        do {
-          CAN.readMsgBuf(&id, &len, buf_r);
-          disoder = bitRead(buf_r[0], 1);
-        } while (CAN.checkReceive() == CAN_MSGAVAIL);
+        CAN.readMsgBuf(&id, &len, buf_r);
+        disoder = bitRead(buf_r[0], 1);
         if (disoder == B10) {  //CO放電要求 Active
           Serial.println("Discharging.....");
           delay(2500);
           Serial.println("Now Standby");
-          do {
-            CAN.readMsgBuf(&id, &len, buf_r);
-            disoder = bitRead(buf_r[0], 1);
-          } while (CAN.checkReceive() == CAN_MSGAVAIL);
-          do {
-            byte buf_s[] = { 0x13, 0xFF, 0xFF, 0, 0, 0, 0, 0xA0 };  //standby 状態を送信
-            sndStat = CAN.sendMsgBuf(0x311, 0, 8, buf_s);
-            if (sndStat == CAN_OK) {
-              Serial.println("standby");
-            } else {
-              Serial.println("Error...");
-            }
-            dispat = 0;
-          } while (disoder == B00);
+          CAN.readMsgBuf(&id, &len, buf_r);
+          disoder = bitRead(buf_r[0], 1);
+          byte buf_s[] = { 0x13, 0xFF, 0xFF, 0, 0, 0, 0, 0xA0 };  //standby 状態を送信
+          sndStat = CAN.sendMsgBuf(0x311, 0, 8, buf_s);
+          if (sndStat == CAN_OK) {
+            Serial.println("standby");
+          } else {
+            Serial.println("Error...");
+          }
+          dispat = 0;
         }
       } else if (dispat == 0) {
         if (presen != 1) {
@@ -89,7 +84,7 @@ void loop() {
             sndStat = CAN.sendMsgBuf(0x311, 0, 8, buf_s);
             if (sndStat == CAN_OK) {
               Serial.println("Successfully Sent");
-              Serial.println(status, BIN);
+              //Serial.println(status, BIN);
             } else {
               Serial.println("Error...");
             }
@@ -101,27 +96,22 @@ void loop() {
         sndStat = CAN.sendMsgBuf(0x311, 0, 8, buf_s);
         if (sndStat == CAN_OK) {
           Serial.println("normaly discharge");
-          Serial.println(status, BIN);
+          //Serial.println(status, BIN);
         } else {
           Serial.println("Error...");
         }
       }
     }
-  }
-
-  else if (val == '1') {
-
+  } else if (ignsw == 1) {
     digitalWrite(toCPU1, HIGH);
-    Serial.println("TS : ON");
-
-
+    //Serial.println("TS : ON");
     if (status != B011) {  //torque状態じゃないなら以下を実行する
       status = B001;
       byte buf_s[] = { 0xA, 0, 0, 0, 0, 0, 0, 0 };
       sndStat = CAN.sendMsgBuf(0x311, 0, 8, buf_s);
       if (sndStat == CAN_OK) {
         Serial.println("Precharging....");
-        Serial.println(status, BIN);
+        //Serial.println(status, BIN);
         delay(3000);
         Serial.println("to torque control");  ////
         digitalWrite(presta, HIGH);
@@ -129,12 +119,9 @@ void loop() {
       } else {
         Serial.println("Error...");
       }
-      do {
-        CAN.readMsgBuf(&id, &len, buf_r);
-        MG_ECU = bitRead(buf_r[0], 0);
-        if (MG_ECU == 1) { Serial.println("MG-ECU : ON "); }
-      } while (CAN.checkReceive() == CAN_MSGAVAIL);
 
+      CAN.readMsgBuf(&id, &len, buf_r);
+      MG_ECU = bitRead(buf_r[0], 0);
       if (MG_ECU == 1) {
         status = B011;                                                      //torque control 状態にする
         byte buf_s[] = { B00011100, 0, 0, 0, B10010000, B00000001, 0, 0 };  //400V
@@ -154,19 +141,16 @@ void loop() {
         byte buf_s[] = { B00011100, 0, 0, 0, B10010000, B00000001, 0, 0 };
         sndStat = CAN.sendMsgBuf(0x311, 0, 8, buf_s);
         if (sndStat == CAN_OK) {
-          Serial.println("Torque control");
+          Serial.print("Torque control ||  ");
         } else {
           Serial.println("Error...");
         }
-        do {
-          CAN.readMsgBuf(&id, &len, buf_r);
-          int torque = buf_r[1];
-          Serial.print("torque:");
-          Serial.print(torque, DEC);
-          Serial.println("[Nm]");if(val =='0'){break;}
-        } while (val == '1');
+        CAN.readMsgBuf(&id, &len, buf_r);
+        int torque = buf_r[1];
+        //Serial.print("torque:");
+        Serial.print(torque, DEC);
+        Serial.println("[Nm]");
       }
     }
   }
-
 }  //<==loop終了
