@@ -35,18 +35,21 @@ void loop() {
   unsigned long id;      //ID
   byte len;              //フレームの長さ
   static byte buf_r[8];  //CAN通信受信バッファ
-
+  //CAN.readMsgBuf(&id, &len, buf_r);
+  //disoder = bitRead(buf_r[0], 1);
+  //MG_ECU = bitRead(buf_r[0], 0);
   char val = Serial.read();
 
   if (val == '0') {
     ignsw = 0;
+    Serial.println("TS : OFF");
   } else if (val == '1') {
     ignsw = 1;
+    Serial.println("TS : ON");
   }
   if (ignsw == 0) {
     digitalWrite(presta, LOW);
     digitalWrite(toCPU1, LOW);
-    Serial.println("TS : now OFF");
 
     CAN.readMsgBuf(&id, &len, buf_r);
     MG_ECU = bitRead(buf_r[0], 0);
@@ -57,17 +60,18 @@ void loop() {
         sndStat = CAN.sendMsgBuf(0x311, 0, 8, buf_s);
         if (sndStat == CAN_OK) {
           Serial.println("rapid discharge, 400V");
+          //Serial.println(disoder);
+          //Serial.println(MG_ECU);
+          //Serial.println(dispat);
         } else {
           Serial.println("Error...");
         }
         CAN.readMsgBuf(&id, &len, buf_r);
         disoder = bitRead(buf_r[0], 1);
-        if (disoder == B10) {  //CO放電要求 Active
+        if (disoder == 1) {  //CO放電要求 Active
           Serial.println("Discharging.....");
           delay(2500);
-          Serial.println("Now Standby");
-          CAN.readMsgBuf(&id, &len, buf_r);
-          disoder = bitRead(buf_r[0], 1);
+          status = B010;                                          //standby 状態
           byte buf_s[] = { 0x13, 0xFF, 0xFF, 0, 0, 0, 0, 0xA0 };  //standby 状態を送信
           sndStat = CAN.sendMsgBuf(0x311, 0, 8, buf_s);
           if (sndStat == CAN_OK) {
@@ -75,6 +79,7 @@ void loop() {
           } else {
             Serial.println("Error...");
           }
+        } else if (disoder == 0) {
           dispat = 0;
         }
       } else if (dispat == 0) {
@@ -95,7 +100,7 @@ void loop() {
         byte buf_s[] = { 0x3B, 0, 0, 0, 0, 0, 0, 0 };  //discharge状態を送信
         sndStat = CAN.sendMsgBuf(0x311, 0, 8, buf_s);
         if (sndStat == CAN_OK) {
-          Serial.println("normaly discharge");
+          //Serial.println("normaly discharge");
           //Serial.println(status, BIN);
         } else {
           Serial.println("Error...");

@@ -115,33 +115,32 @@ void loop() {
         Serial.println("Error Sending Message...");
         ECUsta = 1;
       }
-      if (Op_status == B111) {  //rapid discharge状態か？
-        if (Dissta != 1) {      //Co放電要求Active済みじゃないなら以下を実行
-          if (Voltage >= 60) {
-            //"Co放電要求 Active送信"
-            byte buf_s[] = { B10, 0, 0, 0, 0, 0, 0, 0 };
-            sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);
-            if (sndStat == CAN_OK) {
-              Serial.println("Discharge Command : ON");
-              Dissta = 1;
-            } else {
-              Serial.println("Error Sending Message...");
-              Dissta = 0;
-            }
-          }
-          if (Op_status == B010) {  //standby状態か？
-            //"Co放電要求 Inactive送信"
-            byte buf_s[] = { B00, 0, 0, 0, 0, 0, 0, 0 };
-            sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);
-            if (sndStat == CAN_OK) {
-              Serial.println("Discharge Command : OFF");
-              Dissta = 0;
-            } else {
-              Serial.println("Error Sending Message...");
-              Dissta = 1;
-            }
+    }
+    if (Op_status == B111) {  //rapid discharge状態か？
+      if (Dissta != 1) {      //Co放電要求Active済みじゃないなら以下を実行
+        if (Voltage >= 60) {
+          //"Co放電要求 Active送信"
+          byte buf_s[] = { B10, 0, 0, 0, 0, 0, 0, 0 };
+          sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);
+          if (sndStat == CAN_OK) {
+            Serial.println("Discharge Command : ON");
+            Dissta = 1;
+          } else {
+            Serial.println("Error Sending Message...");
+            Dissta = 0;
           }
         }
+      }
+    } else if (Op_status == B010) {  //standby状態か？
+      //"Co放電要求 Inactive送信"
+      byte buf_s[] = { B00, 0, 0, 0, 0, 0, 0, 0 };
+      sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);
+      if (sndStat == CAN_OK) {
+        Serial.println("Discharge Command : OFF");
+        //Dissta = 0;
+      } else {
+        Serial.println("Error Sending Message...");
+        Dissta = 1;
       }
     }
   } else if (IGNSWsta == HIGH) {
