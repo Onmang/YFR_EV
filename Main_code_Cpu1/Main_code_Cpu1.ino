@@ -155,8 +155,13 @@ void loop() {
       int Torque = map(deg_in, deg_0, deg_m, TorMin, TorMax);  //角度をトルク値に変換
 
       buf_s[1] = Torque;
-      CAN.sendMsgBuf(0x301, 0, 8, buf_s);  //トルク値CAN送信
-
+      sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);  //トルク値CAN送信
+      if (sndStat == CAN_OK) {
+        Serial.print("torque : ");
+        Serial.println(Torque);
+      } else {
+        Serial.println("Error Sending Message...");
+      }
     } else if (Op_status == B001) {  //Precharge状態か？
       int Presta = digitalRead(Precharge_PIN);
       if (Presta == HIGH) {  //Cpu5:precharge制御は完了か？
