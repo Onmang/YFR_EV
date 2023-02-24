@@ -49,9 +49,9 @@ void loop() {
     status = B001;  //TS on ⇒ precharge状態
     Serial.println("TS : ON");
     Va = 1;
-  } else if (val == 's') {  /////prechargeを途中で止めるとき
+  } else if (val == 's') {  /////prechargeを途中で止めるとき,1s後にTS:off
     ignsw = 1;
-    status = B001;  //TS off ⇒ discharge状態
+    status = B001;  //TS off ⇒ precharge状態
     Serial.println("TS : ON");
     Va = 0;
   }
@@ -128,6 +128,8 @@ void loop() {
         digitalWrite(presta, HIGH);
       } else if (Va == 0) {
         delay(1000);
+        ignsw = 0;
+        Serial.println("TS : OFF!!!!");
       }
       CAN.readMsgBuf(&id, &len, buf_r);
       MG_ECU = bitRead(buf_r[0], 0);
@@ -156,8 +158,8 @@ void loop() {
         CAN.readMsgBuf(&id, &len, buf_r);
         int torque = buf_r[1];
         //Serial.print("torque:");
-        Serial.print(torque, DEC);
-        Serial.println("[Nm]");
+        Serial.println(torque, DEC);
+        //Serial.println("[Nm]");
       }
     }
   }
