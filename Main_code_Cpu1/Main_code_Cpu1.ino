@@ -1,4 +1,7 @@
-//メイン制御コード/Cpu1
+//メイン制御コード/Cpu1_Ver_A
+//このプログラム概要：
+/////////////////////インバータへの指令送信は基本1回行う，送信失敗➡成功するまで送信する．
+/////////////////////懸念点：こちらの送信のタイミングとINVの受信タイミングが合わない場合があるかも
 //残る課題
 //1.トルク値リミットorフィードバックを実装
 //2.トルク値の入力範囲を確認，小数点にならない
@@ -48,8 +51,8 @@ void loop() {
 
   int IGNSWsta = digitalRead(IGNSW_PIN);  //IGNSWの状態，HIGH or LOW
   static int ECUsta = 0;                  //MG-ECUの状態変数，ON：1，OFF：0
-  static int Dissta = 0;                  //Co放電要求の状態変数，Active：1，Inactive：0
-
+  static int Dissta_on = 0;               //Co放電要求 Active状態 1:送信済み or 0：未送信
+  static int Dissta_off = 0;              //Co放電要求 Inactive状態 1：送信済み or 0：未送信
   //CAN処理
   if (CAN.checkReceive() == CAN_MSGAVAIL) {
     CAN.readMsgBuf(&id, &len, buf_r);
@@ -117,33 +120,37 @@ void loop() {
       }
     }
     if (Op_status == B111) {  //rapid discharge状態か？
-      if (Dissta != 1) {      //Co放電要求Active済みじゃないなら以下を実行
+      if (Dissta_on != 1) {   //Co放電要求Active済みじゃないなら以下を実行
         if (Voltage >= 60) {
           //"Co放電要求 Active送信"
           byte buf_s[] = { B10, 0, 0, 0, 0, 0, 0, 0 };
           sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);
           if (sndStat == CAN_OK) {
             Serial.println("Discharge Command : ON");
-            Dissta = 1;
+            Dissta_on = 1;
           } else {
             Serial.println("Error Sending Message...");
-            Dissta = 0;
+            Dissta_on = 0;
           }
         }
       }
     } else if (Op_status == B010) {  //standby状態か？
       //"Co放電要求 Inactive送信"
-      byte buf_s[] = { B00, 0, 0, 0, 0, 0, 0, 0 };
-      sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);
-      if (sndStat == CAN_OK) {
-        Serial.println("Discharge Command : OFF");
-        //Dissta = 0;
-      } else {
-        Serial.println("Error Sending Message...");
-        Dissta = 1;
+      if (Dissta_off != 1) {
+        byte buf_s[] = { B00, 0, 0, 0, 0, 0, 0, 0 };
+        sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);
+        if (sndStat == CAN_OK) {
+          Serial.println("Discharge Command : OFF");
+          Dissta_off = 1;
+        } else {
+          Serial.println("Error Sending Message...");
+          Dissta_off = 0;
+        }
       }
     }
   } else if (IGNSWsta == HIGH) {
+    Dissta_on = 0;   //dischargeの指令を初期化
+    Dissta_off = 0;
     if (Op_status == B011) {  //torque control状態か？
       //"トルク値CAN送信プログラム"
       byte buf_s[] = { B01, 0, 0, 0, 0, 0, 0, 0 };  //0byte目はMG-ECU:on, Co放電要求:off 固定
