@@ -7,13 +7,15 @@
 
 MCP_CAN CAN(10);
 
-const int toCPU1 = 2;  //IGNSWのデジタル出力ピン
-const int presta = 8;  //precharge 制御ピンもどき
+const int toCPU1 = 2;       //IGNSWのデジタル出力ピン
+const int presta = 8;       //precharge 制御ピンもどき
+const int DCmotor_pin = 4;  //DCmotorピン
 
 void setup() {
   Serial.begin(9600);
   pinMode(toCPU1, OUTPUT);
   pinMode(presta, OUTPUT);
+  pinMode(DCmotor_pin, OUTPUT);
 
   if (CAN.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ) == CAN_OK) {
     //CAN.begin(IDの種類, canの通信速度, モジュールとの通信レート（ex:水晶発振子の周波数）)
@@ -42,6 +44,7 @@ void loop() {
   if (val == '0') {
     ignsw = 0;
     status = B111;  //TS off ⇒ discharge状態
+    analogWrite(DCmotor_pin, 0);
     Serial.println("TS : OFF");
 
   } else if (val == '1') {
@@ -96,8 +99,8 @@ void loop() {
         } else if (disoder == 0) {
           status = B111;  //discharge状態にする
         }
-      } else if (status == B010) {                     // standby状態?
-        byte buf_s[] = { 0x13, 0, 0, 0, 0, 0, 0, 0 };  //standby 状態を送信,
+      } else if (status == B010) {                     //standby状態?
+        byte buf_s[] = { 0x13, 0, 0, 0, 0, 0, 0, 0 };  //standby 状態を送信
         sndStat = CAN.sendMsgBuf(0x311, 0, 8, buf_s);
         if (sndStat == CAN_OK) {
           Serial.println("standby");
@@ -157,11 +160,10 @@ void loop() {
         }
         CAN.readMsgBuf(&id, &len, buf_r);
         int torque = buf_r[1];
-        //Serial.print("torque:");
         Serial.println(torque, DEC);
-        //Serial.println("[Nm]");
+        int y = map(torque, 0, 60, 0, 255);
+        analogWrite(DCmotor_pin, y);
       }
     }
   }
-
 }  //<==loop終了
