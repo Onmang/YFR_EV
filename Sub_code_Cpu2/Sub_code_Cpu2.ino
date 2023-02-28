@@ -7,6 +7,8 @@ const int IGNSW_PIN = 2;     //IGNSWのデジタル入力ピン,割り込み
 const int AIR_PIN = 7;       //AIR+の制御ピン
 const int PRErelay_PIN = 8;  //precharge relayの制御ピン
 const int PREsend_PIN = 4;   //CPU1につなげるピン
+int Presta = 0;              //precharge実行したかを判断する, 1:実行済み，0：未実行
+
 
 void PreStop(void);  //割り込み関数
 
@@ -24,9 +26,8 @@ void setup() {
 }
 
 void loop() {
-  static int Presta = 0;  //precharge実行したかを判断する, 1:実行済み，0：未実行
-
   if (IGNSW_PIN, HIGH) {
+    Serial.println("TS:ON");
     if (Presta != 1) {
       digitalWrite(PRErelay_PIN, HIGH);
       digitalWrite(AIR_PIN, LOW);
