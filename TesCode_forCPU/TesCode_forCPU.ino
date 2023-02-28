@@ -9,10 +9,11 @@ MCP_CAN CAN(10);
 
 const int IGNSW_PIN = 2;  //IGNSWの電圧信号
 
-void TS_rise(void);  //割り込み関数,LOW→HIGH
-void TS_fall(void);  //割り込み関数,HIGH→LOW
-byte ignsw = 0;
-byte status = 0;  //制御状態
+//void TS_rise(void);  //割り込み関数,LOW→HIGH
+//void TS_fall(void);  //割り込み関数,HIGH→LOW
+int TSsta = 0;
+int status = 0;  //制御状態
+int OpeSta = 0;
 int Va;
 
 void setup() {
@@ -25,8 +26,8 @@ void setup() {
   } else {
     Serial.println("Can init fail");
   }
-  attachInterrupt(0, TS_rise, RISING);
-  attachInterrupt(0, TS_fall, FALLING);
+  //attachInterrupt(0, TS_rise, RISING);
+  //attachInterrupt(0, TS_fall, FALLING);
 }
 
 void loop() {
@@ -42,8 +43,19 @@ void loop() {
   byte len;              //フレームの長さ
   static byte buf_r[8];  //CAN通信受信バッファ
 
+  TSsta = digitalRead(IGNSW_PIN);
+  if (TSsta == HIGH) {
+    OpeSta = 1;
+    status = B001;  //TS on ⇒ precharge状態
+    Va = 1;
+    Serial.println("TS : ON");
+  } else if (TSsta == LOW) {
+    OpeSta = 0;
+    status = B111;  //TS off ⇒ discharge状態
+    Serial.println("TS : OFF");
+  }
 
-  if (ignsw == 0) {  //LOW
+  if (OpeSta == 0) {  //LOW
     CAN.readMsgBuf(&id, &len, buf_r);
     MG_ECU = bitRead(buf_r[0], 0);
     if (MG_ECU == 0) {                                                   //MG-ECU : off?
@@ -94,8 +106,8 @@ void loop() {
         if (disoder != 0) { Serial.println("Please send [INACTIVE]"); }
       }
     }
-  } else if (ignsw == 1) {  //HIGH
-    if (status == B001) {   //precharge状態 ?
+  } else if (OpeSta == 1) {  //HIGH
+    if (status == B001) {    //precharge状態 ?
 
       byte buf_s[] = { 0xA, 0, 0, 0, 0, 0, 0, 0 };
       sndStat = CAN.sendMsgBuf(0x311, 0, 8, buf_s);
@@ -104,8 +116,6 @@ void loop() {
       } else {
         Serial.println("Error...");
       }
-      delay(3000);
-      Serial.println("Transision to torque control....");
       CAN.readMsgBuf(&id, &len, buf_r);
       MG_ECU = bitRead(buf_r[0], 0);
       if (MG_ECU == 1) {
@@ -137,14 +147,14 @@ void loop() {
   }
 }  //<==loop終了
 
-void TS_fall(void) {  //HIGH→LOW
-  ignsw = 0;
-  status = B111;  //TS off ⇒ discharge状態
-  Serial.println("TS : OFF");
-}
-void TS_rise(void) {  //LOW→HIGH
-  ignsw = 1;
-  status = B001;  //TS on ⇒ precharge状態
-  Va = 1;
-  Serial.println("TS : ON");
-}
+// void TS_fall(void) {  //HIGH→LOW
+//   TSsta = 0;
+//   status = B111;  //TS off ⇒ discharge状態
+//   Serial.println("TS : OFF");
+// }
+// void TS_rise(void) {  //LOW→HIGH
+//   TSsta = 1;
+//   status = B001;  //TS on ⇒ precharge状態
+//   Va = 1;
+//   Serial.println("TS : ON");
+// }
