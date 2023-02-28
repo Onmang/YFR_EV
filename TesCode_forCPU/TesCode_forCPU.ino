@@ -7,15 +7,17 @@
 
 MCP_CAN CAN(10);
 
-const int toCPU1 = 2;       //IGNSWのデジタル出力ピン
-const int presta = 8;       //precharge 制御ピンもどき
-const int DCmotor_pin = 4;  //DCmotorピン
+const int IGNSW_PIN = 2;  //IGNSWの電圧信号
+
+void TS_rise(void);  //割り込み関数,LOW→HIGH
+void TS_fall(void);  //割り込み関数,HIGH→LOW
+byte ignsw = 0;
+byte status = 0;  //制御状態
+int Va;
 
 void setup() {
   Serial.begin(9600);
-  pinMode(toCPU1, OUTPUT);
-  pinMode(presta, OUTPUT);
-  pinMode(DCmotor_pin, OUTPUT);
+  pinMode(IGNSW_PIN, INPUT);
 
   if (CAN.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ) == CAN_OK) {
     //CAN.begin(IDの種類, canの通信速度, モジュールとの通信レート（ex:水晶発振子の周波数）)
@@ -23,13 +25,13 @@ void setup() {
   } else {
     Serial.println("Can init fail");
   }
+  attachInterrupt(0, TS_rise, RISING);
+  attachInterrupt(0, TS_fall, FALLING);
 }
 
 void loop() {
-  static byte ignsw;
   static byte MG_ECU;  //Mg-ECU実行要求，ON：1，OFF：0
 
-  static int Va;
   static byte status;   //制御状態
   static byte disoder;  //Co放電要求の状態変数，Active：1，Inactive：0
   unsigned char sndStat;
@@ -39,29 +41,9 @@ void loop() {
   unsigned long id;      //ID
   byte len;              //フレームの長さ
   static byte buf_r[8];  //CAN通信受信バッファ
-  char val = Serial.read();
 
-  if (val == '0') {
-    ignsw = 0;
-    status = B111;  //TS off ⇒ discharge状態
-    analogWrite(DCmotor_pin, 0);
-    Serial.println("TS : OFF");
 
-  } else if (val == '1') {
-    ignsw = 1;
-    status = B001;  //TS on ⇒ precharge状態
-    Serial.println("TS : ON");
-    Va = 1;
-  } else if (val == 's') {  /////prechargeを途中で止めるとき,1s後にTS:off
-    ignsw = 1;
-    status = B001;  //TS off ⇒ precharge状態
-    Serial.println("TS : ON");
-    Va = 0;
-  }
   if (ignsw == 0) {  //LOW
-    digitalWrite(presta, LOW);
-    digitalWrite(toCPU1, LOW);
-
     CAN.readMsgBuf(&id, &len, buf_r);
     MG_ECU = bitRead(buf_r[0], 0);
     if (MG_ECU == 0) {                                                   //MG-ECU : off?
@@ -113,27 +95,17 @@ void loop() {
       }
     }
   } else if (ignsw == 1) {  //HIGH
-    digitalWrite(toCPU1, HIGH);
-    //Serial.println("TS : ON");
-    if (status == B001) {  //precharge状態 ?
+    if (status == B001) {   //precharge状態 ?
 
       byte buf_s[] = { 0xA, 0, 0, 0, 0, 0, 0, 0 };
       sndStat = CAN.sendMsgBuf(0x311, 0, 8, buf_s);
       if (sndStat == CAN_OK) {
         Serial.println("Precharging....");
-        //Serial.println(Va,DEC);
       } else {
         Serial.println("Error...");
       }
-      if (Va == 1) {
-        delay(2000);
-        Serial.println("Transision to torque control....");
-        digitalWrite(presta, HIGH);
-      } else if (Va == 0) {
-        delay(1000);
-        ignsw = 0;
-        Serial.println("TS : OFF!!!!");
-      }
+      delay(3000);
+      Serial.println("Transision to torque control....");
       CAN.readMsgBuf(&id, &len, buf_r);
       MG_ECU = bitRead(buf_r[0], 0);
       if (MG_ECU == 1) {
@@ -145,7 +117,6 @@ void loop() {
         } else {
           Serial.println("Error...");
         }
-
       } else if (MG_ECU == 0) {
         status = B001;  //precharge 状態
       }
@@ -161,9 +132,19 @@ void loop() {
         CAN.readMsgBuf(&id, &len, buf_r);
         int torque = buf_r[1];
         Serial.println(torque, DEC);
-        int y = map(torque, 0, 60, 0, 255);
-        analogWrite(DCmotor_pin, y);
       }
     }
   }
 }  //<==loop終了
+
+void TS_fall(void) {  //HIGH→LOW
+  ignsw = 0;
+  status = B111;  //TS off ⇒ discharge状態
+  Serial.println("TS : OFF");
+}
+void TS_rise(void) {  //LOW→HIGH
+  ignsw = 1;
+  status = B001;  //TS on ⇒ precharge状態
+  Va = 1;
+  Serial.println("TS : ON");
+}
