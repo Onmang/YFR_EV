@@ -20,8 +20,10 @@ float min = 1024 * 0.1;  //APPS,PST360-G2 出力関数：0°＝10%
 float max = 1024 * 0.9;  //APPS,PST360-G2 出力関数：360°＝90%
 int deg_0 = 20;          //APPS,作動開始角度
 int deg_m = 40;          //APPS,作動限界角度
-int TorMin = 0;          //APPS,入力トルク下限
-int TorMax = 60;         //APPs,入力トルク上限
+int TorMin = 0;          //APPS,入力値下限
+int TorMax = 120;        //APPs,入力値上限
+
+int N_lim = 9000;  //回転数limit[rpm]
 
 void setup() {
   Serial.begin(9600);
@@ -37,7 +39,7 @@ void setup() {
 }
 
 void loop() {
-  static byte buf_s[] = { 0, 0, 0, 0, 0, 0, 0, 0 };  //CAN通信送信バッファ
+  static byte buf_s[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };  //CAN通信送信バッファ
 
   unsigned long id;  //ID
   byte len;          //フレームの長さ
@@ -109,7 +111,7 @@ void loop() {
   if (IGNSWsta == LOW) {
     if (ECUsta != 0) {  //MG-ECU"OFF"ではないなら以下を実行
       //"MG-ECU"OFF"送信"
-      byte buf_s[] = { B00, 0, 0, 0, 0, 0, 0, 0 };
+      byte buf_s[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
       sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);
       if (sndStat == CAN_OK) {
         Serial.println("MG-ECU : OFF");
@@ -123,7 +125,7 @@ void loop() {
       if (Dissta_on != 1) {   //Co放電要求Active済みじゃないなら以下を実行
         if (Voltage >= 60) {
           //"Co放電要求 Active送信"
-          byte buf_s[] = { B10, 0, 0, 0, 0, 0, 0, 0 };
+          byte buf_s[] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
           sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);
           if (sndStat == CAN_OK) {
             Serial.println("Discharge Command : ON");
@@ -137,7 +139,7 @@ void loop() {
     } else if (Op_status == B010) {  //standby状態か？
       //"Co放電要求 Inactive送信"
       if (Dissta_off != 1) {
-        byte buf_s[] = { B00, 0, 0, 0, 0, 0, 0, 0 };
+        byte buf_s[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
         sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);
         if (sndStat == CAN_OK) {
           Serial.println("Discharge Command : OFF");
@@ -149,11 +151,11 @@ void loop() {
       }
     }
   } else if (IGNSWsta == HIGH) {
-    Dissta_on = 0;   //dischargeの指令を初期化
+    Dissta_on = 0;  //dischargeの指令を初期化
     Dissta_off = 0;
     if (Op_status == B011) {  //torque control状態か？
       //"トルク値CAN送信プログラム"
-      byte buf_s[] = { B01, 0, 0, 0, 0, 0, 0, 0 };  //0byte目はMG-ECU:on, Co放電要求:off 固定
+      byte buf_s[] = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };  //0byte目はMG-ECU:on, Co放電要求:off 固定
       val = analogRead(APPS_PIN);
 
       int deg = map(val, min, max, 0, 359);                    //アナログ入力値を角度に置き換え
@@ -173,7 +175,7 @@ void loop() {
       if (Presta == HIGH) {  //Cpu5:precharge制御は完了か？
         if (ECUsta != 1) {   //MG-ECU"ON"ではないなら以下を実行
           //"MG-ECU"ON"送信"
-          byte buf_s[] = { B01, 0, 0, 0, 0, 0, 0, 0 };
+          byte buf_s[] = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
           sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);  //ID, 標準フレーム:0, データ長:8
           if (sndStat == CAN_OK) {
             Serial.println("MG-ECU : ON");
