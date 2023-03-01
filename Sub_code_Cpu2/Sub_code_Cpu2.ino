@@ -23,22 +23,29 @@ void setup() {
   digitalWrite(PRErelay_PIN, LOW);
   digitalWrite(AIR_PIN, LOW);
   delay(500);  //プログラムが動いてから急にリレーが閉じないようにする
+
+  Serial.begin(9600);
+  Serial.println("OK");
 }
 
 void loop() {
-  if (IGNSW_PIN, HIGH) {
+  int TS = 0;
+  TS = digitalRead(IGNSW_PIN);
+
+  if (TS == HIGH) {
     Serial.println("TS:ON");
     if (Presta != 1) {
       digitalWrite(PRErelay_PIN, HIGH);
       digitalWrite(AIR_PIN, LOW);
       delay(3000);
+      Serial.println("Takushi");
       digitalWrite(PRErelay_PIN, LOW);
       digitalWrite(AIR_PIN, HIGH);
 
       digitalWrite(PREsend_PIN, HIGH);  //Cpu1に送信
       Presta = 1;
     }
-  } else if (IGNSW_PIN, LOW) {
+  } else if (TS == LOW) {
     digitalWrite(PRErelay_PIN, LOW);
     digitalWrite(AIR_PIN, LOW);
     Presta = 0;
@@ -48,4 +55,5 @@ void loop() {
 void PreStop(void) {
   digitalWrite(PRErelay_PIN, LOW);
   digitalWrite(AIR_PIN, LOW);
+  Serial.println("Nguen");
 }
