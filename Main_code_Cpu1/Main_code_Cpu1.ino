@@ -22,7 +22,7 @@ int deg_0 = 20;          //APPS,作動開始角度
 int deg_m = 40;          //APPS,作動限界角度
 int TorMin = 0;          //APPS,入力値下限
 int TorMax = 120;        //APPs,入力値上限
-
+int T_delta = 0;
 int N_lim = 9000;  //回転数limit[rpm]
 
 void setup() {
@@ -40,10 +40,9 @@ void setup() {
 
 void loop() {
   static byte buf_s[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };  //CAN通信送信バッファ
-
-  unsigned long id;  //ID
-  byte len;          //フレームの長さ
-  byte buf_r[8];     //CAN通信受信バッファ
+  unsigned long id;                                                          //ID
+  byte len;                                                                  //フレームの長さ
+  byte buf_r[8];                                                             //CAN通信受信バッファ
 
   unsigned short Motor_cur, Voltage, Anomaly_sig;
   short Motor_rev;
@@ -109,6 +108,7 @@ void loop() {
   }
   //IGNSWの状態分岐，HIGH or LOW
   if (IGNSWsta == LOW) {
+    //Serial.println("TS:LOW");
     if (ECUsta != 0) {  //MG-ECU"OFF"ではないなら以下を実行
       //"MG-ECU"OFF"送信"
       byte buf_s[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
@@ -151,22 +151,36 @@ void loop() {
       }
     }
   } else if (IGNSWsta == HIGH) {
+    //Serial.println("TS:HIGH");
     Dissta_on = 0;  //dischargeの指令を初期化
     Dissta_off = 0;
-    if (Op_status == B011) {  //torque control状態か？
-      //"トルク値CAN送信プログラム"
+    if (Op_status == B011) {                                              //torque control状態か？
+                                                                          ////"トルク値CAN送信プログラム"
       byte buf_s[] = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };  //0byte目はMG-ECU:on, Co放電要求:off 固定
       val = analogRead(APPS_PIN);
 
-      int deg = map(val, min, max, 0, 359);                    //アナログ入力値を角度に置き換え
-      int deg_in = constrain(deg, deg_0, deg_m);               //角度の範囲を制限
-      int Torque = map(deg_in, deg_0, deg_m, TorMin, TorMax);  //角度をトルク値に変換
-
-      buf_s[1] = Torque;
+      int deg = map(val, min, max, 0, 359);                  //アナログ入力値を角度に置き換え
+      int deg_in = constrain(deg, deg_0, deg_m);             //角度の範囲を制限
+      int T_in = map(deg_in, deg_0, deg_m, TorMin, TorMax);  //角度をトルク値に変換
+      ///////回転数リミッター
+      if (T_delta > T_in) {
+        T_delta = T_in;
+      } else if (Motor_rev > N_lim) {
+        if (T_in > T_delta) {
+          T_delta++;
+        } else if (T_delta > 0) {
+          T_delta--;
+        }
+      }
+      int T_out = T_in - T_delta;
+      ////////
+      buf_s[1] = T_out;
       sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);  //トルク値CAN送信
       if (sndStat == CAN_OK) {
-        Serial.print("torque : ");
-        Serial.println(Torque);
+        Serial.print("T_in : ");
+        Serial.println(T_in);
+        Serial.print("T_out : ");
+        Serial.println(T_out);
       } else {
         Serial.println("Error Sending Message...");
       }
@@ -188,4 +202,4 @@ void loop() {
       }
     }
   }
-}  //loop終了
+}  //loop終
