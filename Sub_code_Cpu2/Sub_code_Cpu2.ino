@@ -9,11 +9,10 @@ const int PRErelay_PIN = 8;  //precharge relayの制御ピン
 const int PREsend_PIN = 4;   //CPU1につなげるピン
 int Presta = 0;              //precharge実行したかを判断する, 1:実行済み，0：未実行
 
-int OpeSta = 0;
+
 void PreStop(void);  //割り込み関数
 
 void setup() {
-  Serial.begin(9600);
   pinMode(IGNSW_PIN, INPUT);
   pinMode(AIR_PIN, OUTPUT);
   pinMode(PRErelay_PIN, OUTPUT);
@@ -24,33 +23,29 @@ void setup() {
   digitalWrite(PRErelay_PIN, LOW);
   digitalWrite(AIR_PIN, LOW);
   delay(500);  //プログラムが動いてから急にリレーが閉じないようにする
+
+  Serial.begin(9600);
+  Serial.println("OK");
 }
 
 void loop() {
-  int TSsta = digitalRead(IGNSW_PIN);
-  if (TSsta == HIGH) {
-    OpeSta = 1;
+  int TS = 0;
+  TS = digitalRead(IGNSW_PIN);
+
+  if (TS == HIGH) {
     Serial.println("TS:ON");
-  } else if (TSsta == LOW) {
-    OpeSta = 0;
-    Serial.println("TS:OFF");
-  }
-  if (OpeSta == 1) {
     if (Presta != 1) {
       digitalWrite(PRErelay_PIN, HIGH);
       digitalWrite(AIR_PIN, LOW);
-      Serial.println("Precharging");
       delay(3000);
-      Serial.println("Precharge OK");
+      Serial.println("Takushi");
       digitalWrite(PRErelay_PIN, LOW);
       digitalWrite(AIR_PIN, HIGH);
 
       digitalWrite(PREsend_PIN, HIGH);  //Cpu1に送信
-      delay(3000);
-      digitalWrite(PREsend_PIN, LOW); 
       Presta = 1;
     }
-  } else if (OpeSta == 0) {
+  } else if (TS == LOW) {
     digitalWrite(PRErelay_PIN, LOW);
     digitalWrite(AIR_PIN, LOW);
     Presta = 0;
@@ -58,7 +53,7 @@ void loop() {
 }  //loop終了
 
 void PreStop(void) {
-  Serial.println("Waricomi");
   digitalWrite(PRErelay_PIN, LOW);
   digitalWrite(AIR_PIN, LOW);
+  Serial.println("warikomi");
 }
