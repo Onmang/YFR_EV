@@ -162,6 +162,7 @@ void loop() {
       int deg = map(val, min, max, 0, 359);                  //アナログ入力値を角度に置き換え
       int deg_in = constrain(deg, deg_0, deg_m);             //角度の範囲を制限
       int T_in = map(deg_in, deg_0, deg_m, TorMin, TorMax);  //角度をトルク値に変換
+
       ///////回転数リミッター
       if (T_delta > T_in) {
         T_delta = T_in;
