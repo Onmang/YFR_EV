@@ -60,25 +60,17 @@ void loop() {
   if (OpeSta == 0) {  //LOW
     CAN.readMsgBuf(&id, &len, buf_r);
     MG_ECU = bitRead(buf_r[0], 0);
-    if (MG_ECU == 0) {                                                   //MG-ECU : off?
-      if (status != B010) {                                              //Not standby?
-        if (Va == 1) {                                                   //残留電圧＝400v?
-          byte buf_s[] = { 0x3B, 0, 0, 0, B01000000, B00000110, 0, 0 };  //discharge状態を送信, 400V
-          sndStat = CAN.sendMsgBuf(0x311, 0, 8, buf_s);
-          if (sndStat == CAN_OK) {
-            Serial.println("rapid discharge, 400V");
-          } else {
-            Serial.println("Error...");
-          }
-        } else if (Va == 0) {
-          byte buf_s[] = { 0x3B, 0, 0, 0, B11101100, B00000000, 0, 0 };  //discharge状態を送信, 59V
-          sndStat = CAN.sendMsgBuf(0x311, 0, 8, buf_s);
-          if (sndStat == CAN_OK) {
-            Serial.println("rapid discharge, <60V");
-          } else {
-            Serial.println("Error...");
-          }
+    if (MG_ECU == 0) {       //MG-ECU : off?
+      if (status != B010) {  //Not standby?
+
+        byte buf_s[] = { 0x3B, 0, 0, 0, B01000000, B00000110, 0, 0 };  //discharge状態を送信, 400V
+        sndStat = CAN.sendMsgBuf(0x311, 0, 8, buf_s);
+        if (sndStat == CAN_OK) {
+          Serial.println("rapid discharge, 400V");
+        } else {
+          Serial.println("Error...");
         }
+
         CAN.readMsgBuf(&id, &len, buf_r);
         disoder = bitRead(buf_r[0], 1);
         if (disoder == 1) {  //CO放電要求 Active
@@ -152,7 +144,7 @@ void loop() {
 
 void TS_fall(void) {  //HIGH→LOW
   analogWrite(DCmotor_PIN, 0);
-  
+
   Serial.println("TS : OFF");
 }
 // void TS_rise(void) {  //LOW→HIGH
