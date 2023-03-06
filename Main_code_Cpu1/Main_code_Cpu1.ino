@@ -16,14 +16,14 @@ const int Precharge_PIN = 4;  //Precharge制御マイコンのデジタル入力
 
 const int APPS_PIN = 0;  //APPS,アナログ入力ピン
 int val = 0;             //APPS,アナログ入力の変数
-float min = 1024 * 0.1;  //APPS,PST360-G2 出力関数：0°＝10%
-float max = 1024 * 0.9;  //APPS,PST360-G2 出力関数：360°＝90%
-int deg_0 = 20;          //APPS,作動開始角度
-int deg_m = 40;          //APPS,作動限界角度
-int TorMin = 0;          //APPS,入力値下限
-int TorMax = 120;        //APPs,入力値上限
+const float min = 1024 * 0.1;  //APPS,PST360-G2 出力関数：0°＝10%
+const float max = 1024 * 0.9;  //APPS,PST360-G2 出力関数：360°＝90%
+const int deg_0 = 20;          //APPS,作動開始角度
+const int deg_m = 40;          //APPS,作動限界角度
+const int TorMin = 0;          //APPS,入力値下限
+const int TorMax = 120;        //APPs,入力値上限
 int T_delta = 0;
-int N_lim = 9000;  //回転数limit[rpm]
+const int N_lim = 9000;  //回転数limit[rpm]
 
 void setup() {
   Serial.begin(9600);
