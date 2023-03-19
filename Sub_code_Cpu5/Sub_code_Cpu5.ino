@@ -7,14 +7,14 @@
 // rs      →   D7
 // rw      →   GND
 // enable  →   D8
-// d4      →   D9
-// d5      →   D10
-// d6      →   D11
-// d7      →   D12
+// d4      →   D5
+// d5      →   D4
+// d6      →   D3
+// d7      →   D2
 
 // [構文]LiquidCrystal(rs, rw,  enable, d0, d1, d2, d3, d4, d5, d6, d7)
 
-LiquidCrystal lcd(7, 8, 9, 10, 11, 12);
+LiquidCrystal lcd(7, 8, 5, 4, 3, 2);
 MCP_CAN CAN(10);
 
 void setup() {
@@ -35,7 +35,7 @@ void loop() {
   byte buf[8];
   unsigned short Voltage, Op_status;
   short Motor_rev;
-  float torque;
+  int torque;
 
   if (CAN.checkReceive() == CAN_MSGAVAIL) {
     CAN.readMsgBuf(&id, &len, buf);
@@ -48,7 +48,7 @@ void loop() {
       Op_status = Op_status >> 3;
 
       Motor_rev = (buf[2] << 8) | buf[1];
-      Motor_rev = Motor_rev - 14000;  //モータ回転数[rpm],オフセット-14000
+      Motor_rev = (Motor_rev - 14000) / 100;  //モータ回転数[rpm],オフセット-14000
 
       Voltage = (buf[5] << 8) | buf[4];  //モータ電圧4byteと5byteを結合
       for (int j = 12; j < 16; j++) {
@@ -66,24 +66,28 @@ void loop() {
         lcd.print("STB");  //Standby
       } else if (Op_status == B011) {
         lcd.print("TOR");  //Torque control
-        lcd.setCursor(0, 1);
-        lcd.print(Motor_rev, DEC);
-        lcd.print(" rpm");
+        //lcd.setCursor(0, 1);
+        //char REV[15];
+        //dtostrf(Motor_rev, 3, 0, REV);
+        //lcd.print(REV);
+        //lcd.print("00rpm");
       } else if (Op_status == B111) {
         lcd.print("DIS");  //Rapid discharge
       }
       //モータ状態
-      lcd.setCursor(6, 0);
-      lcd.print("Volt:");
-      lcd.print(Voltage, DEC);
+      lcd.setCursor(11, 0);
+      char VOL[5];
+      dtostrf(Voltage, 3, 0, VOL);
+      lcd.print(VOL);
       lcd.print(" V");
     }
     //ID:769
     else if (id == 0x301) {
       torque = 0.5 * buf[1];
-      int torque = round(torque);
       lcd.setCursor(11, 1);
-      lcd.print(torque, DEC);
+      char TOR[5];
+      dtostrf(torque, 2, 0, TOR);
+      lcd.print(TOR);
       lcd.print(" Nm");
     }
   }
