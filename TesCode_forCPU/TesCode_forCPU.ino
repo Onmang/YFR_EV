@@ -10,30 +10,26 @@ MCP_CAN CAN(10);
 
 const int IGNSW_PIN = 2;  //IGNSWの電圧信号
 const int DCmotor_PIN = 4;
-
-const int C = 600 * (10 ^ -6);  // capacitance
-const int E = 400;              //最大電圧
-const int R_pre = 1000;         // precharge resistor
-const int R_dis = 1500;         //discharge resistor
-const float dt = 0.1;           //微小時間
-float time[] = {};
+float d = -1 / (1500 * 0.0006);  //電圧算出用
 
 //void TS_fall(void);  //割り込み関数,HIGH→LOW
+float T[51] = { [0] = 0.0 };
 
 void setup() {
   Serial.begin(9600);
   pinMode(IGNSW_PIN, INPUT);
   pinMode(DCmotor_PIN, OUTPUT);
+  int k = 0;
+  while (T[k] < 5) {
+    T[k + 1] = T[k] + 0.1;
+    k++;
+  }
 
   if (CAN.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ) == CAN_OK) {
-    //CAN.begin(IDの種類, canの通信速度, モジュールとの通信レート（ex:水晶発振子の周波数）)
+    //CAN.begin(IDの種類, canの通信速度, モジュールとの通信レート（ex:水晶発振子の周波数）
     CAN.setMode(MCP_NORMAL);
   } else {
     Serial.println("Can init fail");
-  }
-  time[0] = 0.0;
-  for (int i = 0; i < 51; i++) {
-    time[i + 1] = time[i] + dt;
   }
   //attachInterrupt(0, TS_fall, FALLING);
 }
@@ -53,16 +49,17 @@ void loop() {
   byte len;              //フレームの長さ
   static byte buf_r[8];  //CAN通信受信バッファ
 
+
   TSsta = digitalRead(IGNSW_PIN);
 
   if (TSsta == LOW) {  //LOW
     j = 0;
     CAN.readMsgBuf(&id, &len, buf_r);
-    MG_ECU = bitRead(buf_r[0], 0);
+    if (bitRead(buf_r[0], 0) == 0) { MG_ECU = 0; }
     if (MG_ECU == 0) {       //MG-ECU : off?
       if (status != B010) {  //Not standby?
         status = B111;       //discharge状態にする
-        voltage = E * exp((-1 / (R_dis * C)) * time[i]);
+        voltage = 400 * exp(d * T[i]);
         i++;
         byte buf_s[] = { 0x3B, 0, 0, 0, 0, 0, 0, 0 };  //discharge状態を送信, 400V
         buf_s[4] |= (byte)((voltage & 0x3F) << 2);
@@ -76,11 +73,11 @@ void loop() {
           Serial.println("Error...");
         }
         CAN.readMsgBuf(&id, &len, buf_r);
-        disoder = bitRead(buf_r[0], 1);
+        if (bitRead(buf_r[0], 1) == 1) { disoder = 1; }
         if (disoder == 1) {  //CO放電要求 Active
           Serial.println("Discharging.....");
-          if (voltage < 60) {  //standby状態
-            status = B010;
+          if (voltage < 60) {
+            status = B010;                                 //standby状態
             byte buf_s[] = { 0x13, 0, 0, 0, 0, 0, 0, 0 };  //standby状態を送信
             buf_s[4] |= (byte)((voltage & 0x3F) << 2);
             buf_s[5] |= (byte)((voltage >> 6) & 0xF);
@@ -92,7 +89,7 @@ void loop() {
             }
           }
         } else if (disoder == 0) {
-          Serial.println("Please send [ACTIVE]");
+          //Serial.println("Please send [ACTIVE]");
           if (voltage < 60) {
             error_sta = B101;                              //異常状態をcritical errorに更新
             byte buf_s[] = { 0x13, 0, 0, 0, 0, 0, 0, 0 };  //standby状態を送信
@@ -101,33 +98,28 @@ void loop() {
             buf_s[7] = (buf_s[7] | B00000101) << 5;
             sndStat = CAN.sendMsgBuf(0x311, 0, 8, buf_s);  //standby & critical error
             if (sndStat == CAN_OK) {
-              Serial.println("Standby, Critical Error!!!");
+              Serial.println("Standby, Critical Error!!!  Please send [ACTIVE]");
             } else {
               Serial.println("Error...");
             }
           }
         }
-      } else if (status == B010) {  //standby状態?
+
+      } else if (status == B010) {  //standby状態
         if (error_sta != B101) {
-          voltage = E * exp((-1 / (R_dis * C)) * time[i]);
-          i++;
           byte buf_s[] = { 0x13, 0, 0, 0, 0, 0, 0, 0 };  //standby状態を送信
-          buf_s[4] |= (byte)((voltage & 0x3F) << 2);
-          buf_s[5] |= (byte)((voltage >> 6) & 0xF);
           sndStat = CAN.sendMsgBuf(0x311, 0, 8, buf_s);
           if (sndStat == CAN_OK) {
-            Serial.println("standby, now ");
+            Serial.print("standby, now ");
             Serial.print(voltage);
             Serial.println("[v]");
           } else {
             Serial.println("Error...");
           }
           CAN.readMsgBuf(&id, &len, buf_r);
-          disoder = bitRead(buf_r[0], 1);
-          if (disoder != 0) { Serial.println("Please send [INACTIVE]"); }
+          if (bitRead(buf_r[0], 1) == 0) { disoder = 0; }
+          if (disoder != 0) Serial.println("Please send [INACTIVE]");
         } else if (error_sta == B101) {
-          voltage = E * exp((-1 / (R_dis * C)) * time[i]);
-          i++;
           byte buf_s[] = { 0x13, 0, 0, 0, 0, 0, 0, 0 };  //standby
           buf_s[4] |= (byte)((voltage & 0x3F) << 2);
           buf_s[5] |= (byte)((voltage >> 6) & 0xF);
@@ -135,8 +127,6 @@ void loop() {
           sndStat = CAN.sendMsgBuf(0x311, 0, 8, buf_s);  //standby & critical error
           if (sndStat == CAN_OK) {
             Serial.println("Critical Error!!!  ");
-            Serial.print(voltage);
-            Serial.println("[v]");
           } else {
             Serial.println("Error...");
           }
@@ -147,9 +137,9 @@ void loop() {
     }
   } else if (TSsta == HIGH) {  //HIGH
     i = 0;
-    if (status != B011) {  //not torque?
-      status = B001;       //precharge状態
-            voltage = E * (1 - exp((-1 / (R_pre * C)) * time[j]));  //precharge電圧算出
+    if (status != B011) {                   //not torque?
+      status = B001;                        //precharge状態
+      voltage = 400 * (1 - exp(d * T[j]));  //precharge電圧算出
       j++;
       byte buf_s[] = { 0xA, 0, 0, 0, 0, 0, 0, 0 };
       buf_s[4] |= (byte)((voltage & 0x3F) << 2);
@@ -163,10 +153,10 @@ void loop() {
       }
       if (voltage > 340) {  //precharge判定条件
         CAN.readMsgBuf(&id, &len, buf_r);
-        MG_ECU = bitRead(buf_r[0], 0);
+        if (bitRead(buf_r[0], 0) == 1) MG_ECU = 1;
         if (MG_ECU == 1) {  //MG_ECU on?
           status = B011;    //torque control状態にする
-          voltage = 400;
+          //voltage = 400;
           byte buf_s[] = { B00011100, 0, 0, 0, 0, 0, 0, 0 };
           buf_s[4] |= (byte)((voltage & 0x3F) << 2);
           buf_s[5] |= (byte)((voltage >> 6) & 0xF);
