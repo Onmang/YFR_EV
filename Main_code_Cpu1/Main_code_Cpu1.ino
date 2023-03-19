@@ -2,20 +2,21 @@
 //このプログラム概要：
 /////////////////////インバータへの指令送信は基本1回行う，送信失敗➡成功するまで送信する．
 /////////////////////懸念点：こちらの送信のタイミングとINVの受信タイミングが合わない場合があるかも
-//残る課題
-//1.トルク値リミットorフィードバックを実装
-//2.トルク値の入力範囲を確認，小数点にならない
-//3.情報モニター機能
+//トルク値リミットorフィードバックを実装
+//情報モニター機能→LCD
 
 #include <mcp_can.h>
 #include <SPI.h>
+#include <LiquidCrystal.h>
 
-MCP_CAN CAN(10);              //CAN通信ポート
+MCP_CAN CAN(10);                      //CAN通信ポート
+LiquidCrystal lcd(9, 8, 7, 6, 5, 4);  //LiquidCrystal(rs,enable, d4, d5, d6, d7)
+
 const int IGNSW_PIN = 2;      //IGNSWのデジタル入力ピン
 const int Precharge_PIN = 4;  //Precharge制御マイコンのデジタル入力ピン
 
-const int APPS_PIN = 0;  //APPS,アナログ入力ピン
-int val = 0;             //APPS,アナログ入力の変数
+const int APPS_PIN = 0;        //APPS,アナログ入力ピン
+int val = 0;                   //APPS,アナログ入力の変数
 const float min = 1024 * 0.1;  //APPS,PST360-G2 出力関数：0°＝10%
 const float max = 1024 * 0.9;  //APPS,PST360-G2 出力関数：360°＝90%
 const int deg_0 = 20;          //APPS,作動開始角度
@@ -23,7 +24,7 @@ const int deg_m = 40;          //APPS,作動限界角度
 const int TorMin = 0;          //APPS,入力値下限
 const int TorMax = 120;        //APPs,入力値上限
 int T_delta = 0;
-const int N_lim = 9000;  //回転数limit[rpm]
+const int N_lim = 7000;  //回転数limit[rpm]
 
 void setup() {
   Serial.begin(9600);
@@ -36,6 +37,8 @@ void setup() {
   } else {
     Serial.println("Can init fail");
   }
+  lcd.begin(16, 2);  // LCDの桁数と行数を指定する(16桁2行)
+  lcd.clear();       // LCD画面をクリア
 }
 
 void loop() {
@@ -69,6 +72,18 @@ void loop() {
         bitClear(Op_status, n);  //LSBから6-7ビット目を「0」ビットにする
       }
       Op_status = Op_status >> 3;
+      lcd.setCursor(0, 0);  //LCDディスプレイ表示
+      if (Op_status == B000) {
+        lcd.print("INT");  //init
+      } else if (Op_status == B001) {
+        lcd.print("PRE");  //Precharge
+      } else if (Op_status == B010) {
+        lcd.print("STB");  //Standby
+      } else if (Op_status == B011) {
+        lcd.print("TOR");  //Torque control
+      } else if (Op_status == B111) {
+        lcd.print("DIS");  //Rapid discharge
+      }
 
       //ゲート駆動状態
       Gate_sta = buf_r[0];
@@ -79,7 +94,14 @@ void loop() {
 
       //モータ回転数[rpm]
       Motor_rev = (buf_r[2] << 8) | buf_r[1];
-      Motor_rev = Motor_rev - 14000;  //モータ回転数[rpm],オフセット-14000
+      Motor_rev = Motor_rev - 14000;     //モータ回転数[rpm],オフセット-14000
+      int Motor_rev2 = Motor_rev / 100;  //LCDディスプレイ表示
+      lcd.setCursor(0, 3);
+      lcd.print("00rpm");
+      lcd.setCursor(0, 1);
+      char REV_lcd[15];
+      dtostrf(Motor_rev2, 3, 0, REV_lcd);
+      lcd.print(REV_lcd);
 
       //モータ相電流
       Motor_cur = (buf_r[4] << 8) | buf_r[3];  //モータ相電流3byteと4byteを結合
@@ -94,6 +116,11 @@ void loop() {
         bitClear(Voltage, j);  //LSBから12-15ビット目を「0」ビットにする
       }
       Voltage = Voltage >> 2;  //モータ電圧[V]
+      lcd.setCursor(11, 0);    //LCDディスプレイ表示
+      char VOL_lcd[5];
+      dtostrf(Voltage, 3, 0, VOL_lcd);
+      lcd.print(VOL_lcd);
+      lcd.print(" V");
 
       //異常状態 信号
       Anomaly_sig = buf_r[7] >> 5;  //異常状態 信号
@@ -154,8 +181,8 @@ void loop() {
     //Serial.println("TS:HIGH");
     Dissta_on = 0;  //dischargeの指令を初期化
     Dissta_off = 0;
-    if (Op_status == B011) {                                              //torque control状態か？
-                                                                          ////"トルク値CAN送信プログラム"
+    if (Op_status == B011) {  //torque control状態か？
+      //"トルク値CAN送信プログラム"
       byte buf_s[] = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };  //0byte目はMG-ECU:on, Co放電要求:off 固定
       val = analogRead(APPS_PIN);
 
@@ -178,10 +205,12 @@ void loop() {
       buf_s[1] = T_out;
       sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);  //トルク値CAN送信
       if (sndStat == CAN_OK) {
-        Serial.print("T_in : ");
-        Serial.print(T_in);
-        Serial.print("   T_out : ");
-        Serial.println(T_out);
+        int T_out2 = 0.5 * T_out;
+        lcd.setCursor(11, 1);
+        char TOR_lcd[5];
+        dtostrf(T_out2, 2, 0, TOR_lcd);
+        lcd.print(TOR_lcd);
+        lcd.print(" Nm");
       } else {
         Serial.println("Error Sending Message...");
       }
