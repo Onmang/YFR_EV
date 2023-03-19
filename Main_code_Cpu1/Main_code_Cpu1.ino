@@ -179,8 +179,8 @@ void loop() {
       sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);  //トルク値CAN送信
       if (sndStat == CAN_OK) {
         Serial.print("T_in : ");
-        Serial.println(T_in);
-        Serial.print("T_out : ");
+        Serial.print(T_in);
+        Serial.print("   T_out : ");
         Serial.println(T_out);
       } else {
         Serial.println("Error Sending Message...");
