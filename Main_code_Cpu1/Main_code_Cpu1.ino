@@ -96,12 +96,11 @@ void loop() {
       Motor_rev = (buf_r[2] << 8) | buf_r[1];
       Motor_rev = Motor_rev - 14000;     //モータ回転数[rpm],オフセット-14000
       int Motor_rev2 = Motor_rev / 100;  //LCDディスプレイ表示
-      lcd.setCursor(0, 3);
-      lcd.print("00rpm");
       lcd.setCursor(0, 1);
       char REV_lcd[15];
-      dtostrf(Motor_rev2, 3, 0, REV_lcd);
+      dtostrf(Motor_rev2, 2, 0, REV_lcd);
       lcd.print(REV_lcd);
+      lcd.print("000rpm");
 
       //モータ相電流
       Motor_cur = (buf_r[4] << 8) | buf_r[3];  //モータ相電流3byteと4byteを結合
