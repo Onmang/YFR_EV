@@ -7,13 +7,13 @@
 
 #include <mcp_can.h>
 #include <SPI.h>
-#include <LiquidCrystal.h>
+#include <LiquidCrystal_I2C.h>
 
-MCP_CAN CAN(10);                      //CAN通信ポート
-LiquidCrystal lcd(9, 8, 7, 6, 5, 4);  //LiquidCrystal(rs,enable, d4, d5, d6, d7)
+MCP_CAN CAN(10);                     //CAN通信ポート
+LiquidCrystal_I2C lcd(0x27, 16, 2);  //0x27のアドレス,16列2行のLCDを使用
 
 const int IGNSW_PIN = 2;      //IGNSWのデジタル入力ピン
-const int Precharge_PIN = 3;  //Precharge制御マイコンのデジタル入力ピン
+const int Precharge_PIN = 4;  //Precharge制御マイコンのデジタル入力ピン
 
 const int APPS_PIN = 0;        //APPS,アナログ入力ピン
 int val = 0;                   //APPS,アナログ入力の変数
@@ -37,8 +37,8 @@ void setup() {
   } else {
     Serial.println("Can init fail");
   }
-  lcd.begin(16, 2);  // LCDの桁数と行数を指定する(16桁2行)
-  lcd.clear();       // LCD画面をクリア
+  lcd.init();       // initialize the lcd
+  lcd.backlight();  // Turn on backlight
 }
 
 void loop() {
