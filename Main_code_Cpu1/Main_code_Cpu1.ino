@@ -94,13 +94,13 @@ void loop() {
 
       //モータ回転数[rpm]
       Motor_rev = (buf_r[2] << 8) | buf_r[1];
-      Motor_rev = Motor_rev - 14000;     //モータ回転数[rpm],オフセット-14000
-      int Motor_rev2 = Motor_rev / 100;  //LCDディスプレイ表示
+      Motor_rev = Motor_rev - 14000;  //モータ回転数[rpm],オフセット-14000
+      //int Motor_rev2 = Motor_rev / 100;  //LCDディスプレイ表示
       lcd.setCursor(0, 1);
-      char REV_lcd[15];
-      dtostrf(Motor_rev2, 2, 0, REV_lcd);
-      lcd.print(REV_lcd);
-      lcd.print("000rpm");
+      //char REV_lcd[15];
+      //dtostrf(Motor_rev2, 2, 0, REV_lcd);
+      lcd.print(Motor_rev);
+      lcd.print("rpm");
 
       //モータ相電流
       Motor_cur = (buf_r[4] << 8) | buf_r[3];  //モータ相電流3byteと4byteを結合
@@ -115,10 +115,10 @@ void loop() {
         bitClear(Voltage, j);  //LSBから12-15ビット目を「0」ビットにする
       }
       Voltage = Voltage >> 2;  //モータ電圧[V]
-      lcd.setCursor(11, 0);    //LCDディスプレイ表示
-      char VOL_lcd[5];
-      dtostrf(Voltage, 3, 0, VOL_lcd);
-      lcd.print(VOL_lcd);
+      //lcd.setCursor(11, 0);    //LCDディスプレイ表示
+      //char VOL_lcd[5];
+      //dtostrf(Voltage, 3, 0, VOL_lcd);
+      lcd.print(Voltage);
       lcd.print(" V");
 
       //異常状態 信号
@@ -216,7 +216,8 @@ void loop() {
     } else if (Op_status == B001) {  //Precharge状態か？
       int Presta = digitalRead(Precharge_PIN);
       if (Presta == HIGH) {  //Cpu5:precharge制御は完了か？
-        if (ECUsta != 1) {   //MG-ECU"ON"ではないなら以下を実行
+        //Serial.println("cpu2_high");
+        if (ECUsta != 1) {  //MG-ECU"ON"ではないなら以下を実行
           //"MG-ECU"ON"送信"
           byte buf_s[] = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
           sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);  //ID, 標準フレーム:0, データ長:8
@@ -228,7 +229,7 @@ void loop() {
             ECUsta = 0;
           }
         }
-      }
+      }  //else{Serial.println("cpu2_low");}
     }
   }
 }  //loop終
