@@ -30,11 +30,13 @@ void setup() {
   Serial.begin(9600);
   pinMode(IGNSW_PIN, INPUT);
   pinMode(Precharge_PIN, INPUT);
+  pinMode(APPS_PIN, INPUT);
 
-  if (CAN.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ) == CAN_OK) {
+    if (CAN.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ) == CAN_OK) {
     //CAN.begin(IDの種類, canの通信速度, モジュールとの通信レート（ex:水晶発振子の周波数）)
     CAN.setMode(MCP_NORMAL);
-  } else {
+  }
+  else {
     Serial.println("Can init fail");
   }
   lcd.init();       // initialize the lcd
@@ -62,7 +64,6 @@ void loop() {
     CAN.readMsgBuf(&id, &len, buf_r);
     //ID:785
     if (id == 0x311) {
-
       //MG-ECUシャットダウン許可
       Mg_ecu = bitRead(buf_r[0], 0);
 
@@ -94,13 +95,13 @@ void loop() {
 
       //モータ回転数[rpm]
       Motor_rev = (buf_r[2] << 8) | buf_r[1];
-      Motor_rev = Motor_rev - 14000;  //モータ回転数[rpm],オフセット-14000
-      //int Motor_rev2 = Motor_rev / 100;  //LCDディスプレイ表示
+      Motor_rev = Motor_rev - 14000;     //モータ回転数[rpm],オフセット-14000
+      int Motor_rev2 = Motor_rev / 100;  //LCDディスプレイ表示
       lcd.setCursor(0, 1);
-      //char REV_lcd[15];
-      //dtostrf(Motor_rev2, 2, 0, REV_lcd);
-      lcd.print(Motor_rev);
-      lcd.print("rpm");
+      char REV_lcd[5];
+      dtostrf(Motor_rev2, 3, 0, REV_lcd);
+      lcd.print(REV_lcd);
+      lcd.print("00rpm");
 
       //モータ相電流
       Motor_cur = (buf_r[4] << 8) | buf_r[3];  //モータ相電流3byteと4byteを結合
@@ -115,7 +116,7 @@ void loop() {
         bitClear(Voltage, j);  //LSBから12-15ビット目を「0」ビットにする
       }
       Voltage = Voltage >> 2;  //モータ電圧[V]
-      //lcd.setCursor(11, 0);    //LCDディスプレイ表示
+      lcd.setCursor(11, 0);    //LCDディスプレイ表示
       //char VOL_lcd[5];
       //dtostrf(Voltage, 3, 0, VOL_lcd);
       lcd.print(Voltage);
@@ -123,9 +124,7 @@ void loop() {
 
       //異常状態 信号
       Anomaly_sig = buf_r[7] >> 5;  //異常状態 信号
-    }
-    //ID:801
-    else if (id == 0x321) {
+    } else if (id == 0x321) {       //ID:801
       // 温度
       short INV_deg = buf_r[0] - 40;  //インバータ温度[℃],オフセット-40
       short Mo_deg = buf_r[4] - 40;   //モータ温度[℃],オフセット-40
@@ -134,10 +133,8 @@ void loop() {
   }
   //IGNSWの状態分岐，HIGH or LOW
   if (IGNSWsta == LOW) {
-    //Serial.println("TS:LOW");
-    if (ECUsta != 0) {  //MG-ECU"OFF"ではないなら以下を実行
-      //"MG-ECU"OFF"送信"
-      byte buf_s[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    if (ECUsta != 0) {                                                    //MG-ECU"OFF"ではないなら以下を実行
+      byte buf_s[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };  //"MG-ECU"OFF"送信"
       sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);
       if (sndStat == CAN_OK) {
         Serial.println("MG-ECU : OFF");
@@ -147,11 +144,10 @@ void loop() {
         ECUsta = 1;
       }
     }
-    if (Op_status == B111) {  //rapid discharge状態か？
+    if (Op_status == B111) {  //rapid discharge状態
       if (Dissta_on != 1) {   //Co放電要求Active済みじゃないなら以下を実行
         if (Voltage >= 60) {
-          //"Co放電要求 Active送信"
-          byte buf_s[] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+          byte buf_s[] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };  //"Co放電要求 Active送信"
           sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);
           if (sndStat == CAN_OK) {
             Serial.println("Discharge Command : ON");
@@ -162,7 +158,7 @@ void loop() {
           }
         }
       }
-    } else if (Op_status == B010) {  //standby状態か？
+    } else if (Op_status == B010) {  //standby状態
       //"Co放電要求 Inactive送信"
       if (Dissta_off != 1) {
         byte buf_s[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
@@ -177,7 +173,6 @@ void loop() {
       }
     }
   } else if (IGNSWsta == HIGH) {
-    //Serial.println("TS:HIGH");
     Dissta_on = 0;  //dischargeの指令を初期化
     Dissta_off = 0;
     if (Op_status == B011) {  //torque control状態か？
@@ -213,11 +208,10 @@ void loop() {
       } else {
         Serial.println("Error Sending Message...");
       }
-    } else if (Op_status == B001) {  //Precharge状態か？
+    } else if (Op_status == B001) {  //Precharge状態
       int Presta = digitalRead(Precharge_PIN);
       if (Presta == HIGH) {  //Cpu5:precharge制御は完了か？
-        //Serial.println("cpu2_high");
-        if (ECUsta != 1) {  //MG-ECU"ON"ではないなら以下を実行
+        if (ECUsta != 1) {   //MG-ECU"ON"ではないなら以下を実行
           //"MG-ECU"ON"送信"
           byte buf_s[] = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
           sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);  //ID, 標準フレーム:0, データ長:8
@@ -229,7 +223,7 @@ void loop() {
             ECUsta = 0;
           }
         }
-      }  //else{Serial.println("cpu2_low");}
+      }
     }
   }
 }  //loop終
