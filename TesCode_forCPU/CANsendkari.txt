@@ -1,8 +1,0 @@
-////////////Kari
-      //Byte ParamAはBufの2Byte目上位２ビットと3Byte目，4Byte目下位4ビットに入れる
-      //Buf[]はゼロクリア済み
-      int16_t _ParamA=1000;
-      buf[2] = buf[2] | (byte) ((ParamA & B0000000000000011 ) <<6 ); //ParamAの0～1Bitを切り出して左シフト buf[2]の上位2bitに
-      buf[3] |=          (byte) ((ParamA & B0000001111111100 ) >>2 ); //
-      buf[4] |=          (byte) ((ParamA & B0011110000000000 ) >>10 ); //ParamAの8～13Bit()を切り出して右シフト buf[3]の下位4bitに
-      //Kari/////////
