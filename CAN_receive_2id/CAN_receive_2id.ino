@@ -107,7 +107,7 @@ void loop() {
         }
       }
       //ゲート駆動状態
-      if (0) {
+      if (1) {
         Serial.print("  gate:");
         if (Gate_sta == B00) {
           Serial.print("Short");  //Short circuit
@@ -120,7 +120,7 @@ void loop() {
         }
       }
       //制御状態
-      Serial.print("  状態:");
+      Serial.print("  OpeSta:");
       if (Op_status == B000) {
         Serial.print("init");
       } else if (Op_status == B001) {
@@ -134,7 +134,7 @@ void loop() {
       } else {
         Serial.print("--");  //--:Reserved
       }
-      if (0) {
+      if (1) {
         Serial.print("  Rev:");
         Serial.print(Motor_rev, DEC);
         Serial.print("[rpm]");
@@ -147,7 +147,7 @@ void loop() {
       }
 
       //異常状態
-      if (0) {
+      if (1) {
         Serial.print("  Error:");
         if (Anomaly_sig == B000) {
           Serial.print("No Error");
@@ -166,20 +166,20 @@ void loop() {
       Serial.println();
     }
     //ID:801
-    else if (id == 0x321) {
-      Serial.print("ID:");
-      Serial.print(id);
-      if (0) {
-        // 温度
-        short INV_deg = buf[0] - 40;  //インバータ温度[℃],オフセット-40
-        short Mo_deg = buf[4] - 40;   //モータ温度[℃],オフセット-40
-        Serial.print(" => INV:");
-        Serial.print(INV_deg, DEC);
-        Serial.print("[℃]");
-        Serial.print("  Motor:");
-        Serial.print(Mo_deg, DEC);
-        Serial.print("[℃]");
-      }
+    // else if (id == 0x321) {
+    //   Serial.print("ID:");
+    //   Serial.print(id);
+    //   if (0) {
+    //     // 温度
+    //     short INV_deg = buf[0] - 40;  //インバータ温度[℃],オフセット-40
+    //     short Mo_deg = buf[4] - 40;   //モータ温度[℃],オフセット-40
+    //     Serial.print(" => INV:");
+    //     Serial.print(INV_deg, DEC);
+    //     Serial.print("[℃]");
+    //     Serial.print("  Motor:");
+    //     Serial.print(Mo_deg, DEC);
+    //     Serial.print("[℃]");
+    //   }
       //トルク制限
       if (0) {
         short upper_limit, under_limit;
@@ -202,4 +202,4 @@ void loop() {
       //Serial.println();  //改行
     }
   }
-}
+
