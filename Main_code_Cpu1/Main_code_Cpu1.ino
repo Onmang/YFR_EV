@@ -1,9 +1,9 @@
-//メイン制御コード/Cpu1_Ver_A
-//このプログラム概要：
-/////////////////////インバータへの指令送信は基本1回行う，送信失敗➡成功するまで送信する．
-/////////////////////懸念点：こちらの送信のタイミングとINVの受信タイミングが合わない場合があるかも
-//トルク値リミットorフィードバックを実装
-//情報モニター機能→LCD
+/*メイン制御コード/Cpu1_Ver_A
+このプログラム概要：
+                  インバータへの指令送信は基本1回行う，送信失敗➡成功するまで送信する．
+                  懸念点：こちらの送信のタイミングとINVの受信タイミングが合わない場合があるかも
+トルク値リミットorフィードバックを実装
+情報モニター機能→LCD*/
 
 #include <mcp_can.h>
 #include <SPI.h>
@@ -16,27 +16,26 @@ const int IGNSW_PIN = 2;      //IGNSWのデジタル入力ピン
 const int Precharge_PIN = 4;  //Precharge制御マイコンのデジタル入力ピン
 
 const int APPS_PIN = 0;        //APPS,アナログ入力ピン
-int val = 0;                   //APPS,アナログ入力の変数
+/*int val = 0;                   //APPS,アナログ入力の変数
 const float min = 1024 * 0.1;  //APPS,PST360-G2 出力関数：0°＝10%
 const float max = 1024 * 0.9;  //APPS,PST360-G2 出力関数：360°＝90%
 const int deg_0 = 20;          //APPS,作動開始角度
 const int deg_m = 40;          //APPS,作動限界角度
 const int TorMin = 0;          //APPS,入力値下限
-const int TorMax = 120;        //APPs,入力値上限
+const int TorMax = 10;         //APPs,入力値上限
 int T_delta = 0;
-const int N_lim = 7000;  //回転数limit[rpm]
-
+const int N_lim = 40;  //回転数limit[rpm]
+*/
 void setup() {
   Serial.begin(9600);
   pinMode(IGNSW_PIN, INPUT);
   pinMode(Precharge_PIN, INPUT);
   pinMode(APPS_PIN, INPUT);
 
-    if (CAN.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ) == CAN_OK) {
+  if (CAN.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ) == CAN_OK) {
     //CAN.begin(IDの種類, canの通信速度, モジュールとの通信レート（ex:水晶発振子の周波数）)
     CAN.setMode(MCP_NORMAL);
-  }
-  else {
+  } else {
     Serial.println("Can init fail");
   }
   lcd.init();       // initialize the lcd
@@ -96,12 +95,12 @@ void loop() {
       //モータ回転数[rpm]
       Motor_rev = (buf_r[2] << 8) | buf_r[1];
       Motor_rev = Motor_rev - 14000;     //モータ回転数[rpm],オフセット-14000
-      int Motor_rev2 = Motor_rev / 100;  //LCDディスプレイ表示
+      //int Motor_rev2 = Motor_rev / 100;  //LCDディスプレイ表示,100刻みで表示したい場合
       lcd.setCursor(0, 1);
       char REV_lcd[5];
-      dtostrf(Motor_rev2, 3, 0, REV_lcd);
+      dtostrf(Motor_rev, 3, 0, REV_lcd);
       lcd.print(REV_lcd);
-      lcd.print("00rpm");
+      lcd.print(" rpm");
 
       //モータ相電流
       Motor_cur = (buf_r[4] << 8) | buf_r[3];  //モータ相電流3byteと4byteを結合
@@ -140,7 +139,7 @@ void loop() {
         Serial.println("MG-ECU : OFF");
         ECUsta = 0;
       } else {
-        Serial.println("Error Sending Message...");
+        Serial.println("MG-ECU (ON) : Error Sending Message...");
         ECUsta = 1;
       }
     }
@@ -153,7 +152,7 @@ void loop() {
             Serial.println("Discharge Command : ON");
             Dissta_on = 1;
           } else {
-            Serial.println("Error Sending Message...");
+            Serial.println("Dis command (ON): Error Sending Message...");
             Dissta_on = 0;
           }
         }
@@ -167,7 +166,7 @@ void loop() {
           Serial.println("Discharge Command : OFF");
           Dissta_off = 1;
         } else {
-          Serial.println("Error Sending Message...");
+          Serial.println("Dis command (OFF): Error Sending Message...");
           Dissta_off = 0;
         }
       }
@@ -178,7 +177,7 @@ void loop() {
     if (Op_status == B011) {  //torque control状態か？
       //"トルク値CAN送信プログラム"
       byte buf_s[] = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };  //0byte目はMG-ECU:on, Co放電要求:off 固定
-      val = analogRead(APPS_PIN);
+      /*val = analogRead(APPS_PIN);
 
       int deg = map(val, min, max, 0, 359);                  //アナログ入力値を角度に置き換え
       int deg_in = constrain(deg, deg_0, deg_m);             //角度の範囲を制限
@@ -197,16 +196,19 @@ void loop() {
       int T_out = T_in - T_delta;
       ////////
       buf_s[1] = T_out;
+      */
       sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);  //トルク値CAN送信
       if (sndStat == CAN_OK) {
-        int T_out2 = 0.5 * T_out;
+        /*int T_out2 = 0.5 * T_out;
         lcd.setCursor(11, 1);
         char TOR_lcd[5];
         dtostrf(T_out2, 2, 0, TOR_lcd);
         lcd.print(TOR_lcd);
         lcd.print(" Nm");
+        */
+        //Serial.println(buf_s[1]);
       } else {
-        Serial.println("Error Sending Message...");
+        Serial.println("Torque : Error Sending Message...");
       }
     } else if (Op_status == B001) {  //Precharge状態
       int Presta = digitalRead(Precharge_PIN);
@@ -219,7 +221,7 @@ void loop() {
             Serial.println("MG-ECU : ON");
             ECUsta = 1;
           } else {
-            Serial.println("Error Sending Message...");
+            Serial.println("MG-ECU (ON) : Error Sending Message...");
             ECUsta = 0;
           }
         }

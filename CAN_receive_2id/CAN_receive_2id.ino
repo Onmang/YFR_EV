@@ -23,33 +23,35 @@ void loop() {
   if (CAN.checkReceive() == CAN_MSGAVAIL) {
     CAN.readMsgBuf(&id, &len, buf);
     //ID:769
-    if (id == 0x301) {
-      Serial.print("ID:");
-      Serial.print(id);
-      Serial.print(" => ");
-      int ECU = bitRead(buf[0], 0);
-      switch (ECU) {
-        case 0:
-          Serial.print("ECU:Off");
-          break;
-        case 1:
-          Serial.print("ECU:ON");
-          break;
+    if (0) {
+      if (id == 0x301) {
+        Serial.print("ID:");
+        Serial.print(id);
+        Serial.print(" => ");
+        int ECU = bitRead(buf[0], 0);
+        switch (ECU) {
+          case 0:
+            Serial.print("ECU:Off");
+            break;
+          case 1:
+            Serial.print("ECU:ON");
+            break;
+        }
+        int CAP = bitRead(buf[0], 1);
+        switch (CAP) {
+          case 0:
+            Serial.print("     dis_off");
+            break;
+          case 1:
+            Serial.print("     dis_on");
+            break;
+        }
+        int TOR = (buf[1]) * 0.5;
+        Serial.print("     tor:");
+        Serial.print(TOR, DEC);
+        Serial.print("[Nm]");
+        Serial.println();
       }
-      int CAP = bitRead(buf[0], 1);
-      switch (CAP) {
-        case 0:
-          Serial.print("     dis_off");
-          break;
-        case 1:
-          Serial.print("     dis_on");
-          break;
-      }
-      int TOR = (buf[1]) * 0.5;
-      Serial.print("     tor:");
-      Serial.print(TOR, DEC);
-      Serial.print("[Nm]");
-      Serial.println();
     }
     //ID:785
     else if (id == 0x311) {
@@ -58,6 +60,7 @@ void loop() {
       unsigned short Mg_ecu, Op_status, Gate_sta;
       Serial.print("ID:");
       Serial.print(id);
+      Serial.print(" => ");
       //MG-ECUシャットダウン許可
       Mg_ecu = bitRead(buf[0], 0);
 
@@ -84,7 +87,7 @@ void loop() {
       for (int m = 10; m < 16; m++) {
         bitClear(Motor_cur, m);  //LSBから10-15ビット目を「0」ビットにする
       }
-      Motor_cur = Motor_cur;  //モータ相電流[Arms]
+      Motor_cur = Motor_cur * 0.5;  //モータ相電流[Arms]
 
       //モータ電圧
       Voltage = (buf[5] << 8) | buf[4];  //モータ電圧4byteと5byteを結合
@@ -98,7 +101,7 @@ void loop() {
 
       ////////////////////信号を文字に割り当てる//////////////////
       //MG-ECUシャットダウン許可
-      if (1) {
+      if (0) {
         Serial.print(" => ECUsd:");
         if (Mg_ecu == B0) {
           Serial.print("Not Enable");
@@ -107,7 +110,7 @@ void loop() {
         }
       }
       //ゲート駆動状態
-      if (1) {
+      if (0) {
         Serial.print("  gate:");
         if (Gate_sta == B00) {
           Serial.print("Short");  //Short circuit
@@ -120,7 +123,7 @@ void loop() {
         }
       }
       //制御状態
-      Serial.print("  OpeSta:");
+      Serial.print(";  OpeSta: ");
       if (Op_status == B000) {
         Serial.print("init");
       } else if (Op_status == B001) {
@@ -135,20 +138,20 @@ void loop() {
         Serial.print("--");  //--:Reserved
       }
       if (1) {
-        Serial.print("  Rev:");
+        Serial.print(";  Rev: ");
         Serial.print(Motor_rev, DEC);
-        Serial.print("[rpm]");
-        Serial.print("  Cur:");
+        Serial.print(" [rpm]");
+        Serial.print(";  Cur: ");
         Serial.print(Motor_cur, DEC);
-        Serial.print("[Arms]");
-        Serial.print("  Vol:");
+        Serial.print(" [Arms]");
+        Serial.print(";  Vol: ");
         Serial.print(Voltage, DEC);
-        Serial.print("[V]");
+        Serial.print(" [V]");
       }
 
       //異常状態
       if (1) {
-        Serial.print("  Error:");
+        Serial.print(";  Error: ");
         if (Anomaly_sig == B000) {
           Serial.print("No Error");
         } else if (Anomaly_sig == B001) {
@@ -180,26 +183,25 @@ void loop() {
     //     Serial.print(Mo_deg, DEC);
     //     Serial.print("[℃]");
     //   }
-      //トルク制限
-      if (0) {
-        short upper_limit, under_limit;
-        upper_limit = (buf[2] << 8) | buf[1];  //モータ上限制限トルク（ビットシフト前）
-        for (int k = 12; k < 16; k++) {
-          bitClear(upper_limit, k);  //LSBから12-15ビット目を「0」ビットにする
-        }
-        upper_limit = upper_limit;  //モータ上限制限トルク
-
-        under_limit = (buf[3] << 8) | buf[2];     //モータ下限制限トルク（ビットシフト前）
-        under_limit = (under_limit >> 4) - 1000;  //モータ下限制限トルク,オフセット-1000
-
-        Serial.print("  upper_limit:");
-        Serial.print(upper_limit, DEC);
-        Serial.print("[Nm]");
-        Serial.print("  under_limit:");
-        Serial.print(under_limit, DEC);
-        Serial.print("[Nm]");
+    //トルク制限
+    if (0) {
+      short upper_limit, under_limit;
+      upper_limit = (buf[2] << 8) | buf[1];  //モータ上限制限トルク（ビットシフト前）
+      for (int k = 12; k < 16; k++) {
+        bitClear(upper_limit, k);  //LSBから12-15ビット目を「0」ビットにする
       }
-      //Serial.println();  //改行
-    }
-  }
+      upper_limit = upper_limit * 0.5;  //モータ上限制限トルク
 
+      under_limit = (buf[3] << 8) | buf[2];             //モータ下限制限トルク（ビットシフト前）
+      under_limit = ((under_limit >> 4) - 1000) * 0.5;  //モータ下限制限トルク,オフセット-1000
+
+      Serial.print("  upper_limit:");
+      Serial.print(upper_limit, DEC);
+      Serial.print("[Nm]");
+      Serial.print("  under_limit:");
+      Serial.print(under_limit, DEC);
+      Serial.print("[Nm]");
+    }
+    //Serial.println();  //改行
+  }
+}
