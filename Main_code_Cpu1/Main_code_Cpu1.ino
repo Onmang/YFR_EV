@@ -16,7 +16,7 @@ const int IGNSW_PIN = 2;      //IGNSWのデジタル入力ピン
 const int Precharge_PIN = 4;  //Precharge制御マイコンのデジタル入力ピン
 
 const int APPS_PIN = 0;        //APPS,アナログ入力ピン
-int val = 0;                   //APPS,アナログ入力の変数
+/*int val = 0;                   //APPS,アナログ入力の変数
 const float min = 1024 * 0.1;  //APPS,PST360-G2 出力関数：0°＝10%
 const float max = 1024 * 0.9;  //APPS,PST360-G2 出力関数：360°＝90%
 const int deg_0 = 20;          //APPS,作動開始角度
@@ -25,7 +25,7 @@ const int TorMin = 0;          //APPS,入力値下限
 const int TorMax = 10;         //APPs,入力値上限
 int T_delta = 0;
 const int N_lim = 40;  //回転数limit[rpm]
-
+*/
 void setup() {
   Serial.begin(9600);
   pinMode(IGNSW_PIN, INPUT);
@@ -152,7 +152,7 @@ void loop() {
             Serial.println("Discharge Command : ON");
             Dissta_on = 1;
           } else {
-            Serial.println("Ds command (ON): Error Sending Message...");
+            Serial.println("Dis command (ON): Error Sending Message...");
             Dissta_on = 0;
           }
         }
@@ -166,7 +166,7 @@ void loop() {
           Serial.println("Discharge Command : OFF");
           Dissta_off = 1;
         } else {
-          Serial.println("Ds command (OFF): Error Sending Message...");
+          Serial.println("Dis command (OFF): Error Sending Message...");
           Dissta_off = 0;
         }
       }
@@ -177,7 +177,7 @@ void loop() {
     if (Op_status == B011) {  //torque control状態か？
       //"トルク値CAN送信プログラム"
       byte buf_s[] = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };  //0byte目はMG-ECU:on, Co放電要求:off 固定
-      val = analogRead(APPS_PIN);
+      /*val = analogRead(APPS_PIN);
 
       int deg = map(val, min, max, 0, 359);                  //アナログ入力値を角度に置き換え
       int deg_in = constrain(deg, deg_0, deg_m);             //角度の範囲を制限
@@ -196,14 +196,17 @@ void loop() {
       int T_out = T_in - T_delta;
       ////////
       buf_s[1] = T_out;
+      */
       sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);  //トルク値CAN送信
       if (sndStat == CAN_OK) {
-        int T_out2 = 0.5 * T_out;
+        /*int T_out2 = 0.5 * T_out;
         lcd.setCursor(11, 1);
         char TOR_lcd[5];
         dtostrf(T_out2, 2, 0, TOR_lcd);
         lcd.print(TOR_lcd);
         lcd.print(" Nm");
+        */
+        //Serial.println(buf_s[1]);
       } else {
         Serial.println("Torque : Error Sending Message...");
       }
