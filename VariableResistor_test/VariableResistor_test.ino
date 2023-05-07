@@ -18,6 +18,7 @@ void setup() {
 
 void loop() {
   val = analogRead(INPUT_PIN);
+  /*
   int deg = map(val, min, max, 0, 359);
   int deg_in = constrain(deg, deg_0, deg_m);
   int Torque = map(deg_in, deg_0, deg_m, Tormin, Tormax);
@@ -33,8 +34,8 @@ void loop() {
   Serial.print(Voltage);
   Serial.print("  Torque:");
   Serial.print(Torque);
-
-  Serial.println();
+*/
+  Serial.println(val,DEC);
 
 
   //delay(100);

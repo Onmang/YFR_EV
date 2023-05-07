@@ -15,7 +15,7 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);  //0x27のアドレス,16列2行のLCDを使
 const int IGNSW_PIN = 2;      //IGNSWのデジタル入力ピン
 const int Precharge_PIN = 4;  //Precharge制御マイコンのデジタル入力ピン
 
-const int APPS_PIN = 0;        //APPS,アナログ入力ピン
+const int APPS_PIN = 0;  //APPS,アナログ入力ピン
 /*int val = 0;                   //APPS,アナログ入力の変数
 const float min = 1024 * 0.1;  //APPS,PST360-G2 出力関数：0°＝10%
 const float max = 1024 * 0.9;  //APPS,PST360-G2 出力関数：360°＝90%
@@ -94,7 +94,7 @@ void loop() {
 
       //モータ回転数[rpm]
       Motor_rev = (buf_r[2] << 8) | buf_r[1];
-      Motor_rev = Motor_rev - 14000;     //モータ回転数[rpm],オフセット-14000
+      Motor_rev = Motor_rev - 14000;  //モータ回転数[rpm],オフセット-14000
       //int Motor_rev2 = Motor_rev / 100;  //LCDディスプレイ表示,100刻みで表示したい場合
       lcd.setCursor(0, 1);
       char REV_lcd[5];
@@ -176,9 +176,9 @@ void loop() {
     Dissta_off = 0;
     if (Op_status == B011) {  //torque control状態か？
       //"トルク値CAN送信プログラム"
-      byte buf_s[] = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };  //0byte目はMG-ECU:on, Co放電要求:off 固定
-      /*val = analogRead(APPS_PIN);
-
+      byte buf_s[] = { 0x01, 0xD0, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00 };  //0byte目はMG-ECU:on, Co放電要求:off 固定
+      unsigned int val = analogRead(APPS_PIN);
+      /*
       int deg = map(val, min, max, 0, 359);                  //アナログ入力値を角度に置き換え
       int deg_in = constrain(deg, deg_0, deg_m);             //角度の範囲を制限
       int T_in = map(deg_in, deg_0, deg_m, TorMin, TorMax);  //角度をトルク値に変換
@@ -194,9 +194,14 @@ void loop() {
         }
       }
       int T_out = T_in - T_delta;
-      ////////
-      buf_s[1] = T_out;
-      */
+      ///////*/
+      if (val > 140) {
+        buf_s[1] = 0xD1;
+      } else {
+        buf_s[1] = 0xD0;
+      }  //T_out;
+      //Serial.println(val,DEC);
+
       sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);  //トルク値CAN送信
       if (sndStat == CAN_OK) {
         /*int T_out2 = 0.5 * T_out;
@@ -215,7 +220,7 @@ void loop() {
       if (Presta == HIGH) {  //Cpu5:precharge制御は完了か？
         if (ECUsta != 1) {   //MG-ECU"ON"ではないなら以下を実行
           //"MG-ECU"ON"送信"
-          byte buf_s[] = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+          byte buf_s[] = { 0x01, 0xD0, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00 };
           sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);  //ID, 標準フレーム:0, データ長:8
           if (sndStat == CAN_OK) {
             Serial.println("MG-ECU : ON");
