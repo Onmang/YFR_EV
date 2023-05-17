@@ -15,17 +15,17 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);  //0x27のアドレス,16列2行のLCDを使
 const int IGNSW_PIN = 2;      //IGNSWのデジタル入力ピン
 const int Precharge_PIN = 4;  //Precharge制御マイコンのデジタル入力ピン
 
-const int APPS_PIN = 0;  //APPS,アナログ入力ピン
-/*int val = 0;                   //APPS,アナログ入力の変数
+const int APPS_PIN = 0;        //APPS,アナログ入力ピン
+int val = 0;                   //APPS,アナログ入力の変数
 const float min = 1024 * 0.1;  //APPS,PST360-G2 出力関数：0°＝10%
 const float max = 1024 * 0.9;  //APPS,PST360-G2 出力関数：360°＝90%
 const int deg_0 = 20;          //APPS,作動開始角度
 const int deg_m = 40;          //APPS,作動限界角度
-const int TorMin = 0;          //APPS,入力値下限
-const int TorMax = 10;         //APPs,入力値上限
+const int TorMin = 2000;       //APPS,入力値下限, DEC:2000～2120, HEX:0x7d0～0x848, INV:0～60[Nm]
+const int TorMax = 2120;       //APPs,入力値上限
 int T_delta = 0;
-const int N_lim = 40;  //回転数limit[rpm]
-*/
+const int N_lim = 1000;  //回転数limit[rpm]
+
 void setup() {
   Serial.begin(9600);
   pinMode(IGNSW_PIN, INPUT);
@@ -40,10 +40,13 @@ void setup() {
   }
   lcd.init();       // initialize the lcd
   lcd.backlight();  // Turn on backlight
+  Serial.print("limit: ");
+  Serial.print(N_lim);
+  Serial.println(" [rpm]");
 }
 
 void loop() {
-  static byte buf_s[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };  //CAN通信送信バッファ
+  static byte buf_s[] = { 0x00, 0xD0, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00 };  //CAN通信送信バッファ
   unsigned long id;                                                          //ID
   byte len;                                                                  //フレームの長さ
   byte buf_r[8];                                                             //CAN通信受信バッファ
@@ -94,13 +97,13 @@ void loop() {
 
       //モータ回転数[rpm]
       Motor_rev = (buf_r[2] << 8) | buf_r[1];
-      Motor_rev = Motor_rev - 14000;  //モータ回転数[rpm],オフセット-14000
-      //int Motor_rev2 = Motor_rev / 100;  //LCDディスプレイ表示,100刻みで表示したい場合
+      Motor_rev = Motor_rev - 14000;     //モータ回転数[rpm],オフセット-14000
+      int Motor_rev2 = Motor_rev / 100;  //LCDディスプレイ表示,100刻みで表示したい場合
       lcd.setCursor(0, 1);
       char REV_lcd[5];
       dtostrf(Motor_rev, 3, 0, REV_lcd);
       lcd.print(REV_lcd);
-      lcd.print(" rpm");
+      lcd.print("00rpm");
 
       //モータ相電流
       Motor_cur = (buf_r[4] << 8) | buf_r[3];  //モータ相電流3byteと4byteを結合
@@ -116,9 +119,9 @@ void loop() {
       }
       Voltage = Voltage >> 2;  //モータ電圧[V]
       lcd.setCursor(11, 0);    //LCDディスプレイ表示
-      //char VOL_lcd[5];
-      //dtostrf(Voltage, 3, 0, VOL_lcd);
-      lcd.print(Voltage);
+      char VOL_lcd[5];
+      dtostrf(Voltage, 3, 0, VOL_lcd);
+      lcd.print(VOL_lcd);
       lcd.print(" V");
 
       //異常状態 信号
@@ -133,7 +136,7 @@ void loop() {
   //IGNSWの状態分岐，HIGH or LOW
   if (IGNSWsta == LOW) {
     if (ECUsta != 0) {                                                    //MG-ECU"OFF"ではないなら以下を実行
-      byte buf_s[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };  //"MG-ECU"OFF"送信"
+      byte buf_s[] = { 0x00, 0xD0, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00 };  //"MG-ECU"OFF"送信"
       sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);
       if (sndStat == CAN_OK) {
         Serial.println("MG-ECU : OFF");
@@ -146,7 +149,7 @@ void loop() {
     if (Op_status == B111) {  //rapid discharge状態
       if (Dissta_on != 1) {   //Co放電要求Active済みじゃないなら以下を実行
         if (Voltage >= 60) {
-          byte buf_s[] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };  //"Co放電要求 Active送信"
+          byte buf_s[] = { 0x02, 0xD0, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00 };  //"Co放電要求 Active送信"
           sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);
           if (sndStat == CAN_OK) {
             Serial.println("Discharge Command : ON");
@@ -160,7 +163,7 @@ void loop() {
     } else if (Op_status == B010) {  //standby状態
       //"Co放電要求 Inactive送信"
       if (Dissta_off != 1) {
-        byte buf_s[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+        byte buf_s[] = { 0x00, 0xD0, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00 };
         sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);
         if (sndStat == CAN_OK) {
           Serial.println("Discharge Command : OFF");
@@ -174,11 +177,12 @@ void loop() {
   } else if (IGNSWsta == HIGH) {
     Dissta_on = 0;  //dischargeの指令を初期化
     Dissta_off = 0;
-    if (Op_status == B011) {  //torque control状態か？
+    if (Op_status == B011) {  //torque control状態
       //"トルク値CAN送信プログラム"
+      // トルク送信値の範囲⇒DEC:2000～2120, HEX:0x7d0～0x848
       byte buf_s[] = { 0x01, 0xD0, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00 };  //0byte目はMG-ECU:on, Co放電要求:off 固定
-      unsigned int val = analogRead(APPS_PIN);
-      /*
+
+      val = analogRead(APPS_PIN);
       int deg = map(val, min, max, 0, 359);                  //アナログ入力値を角度に置き換え
       int deg_in = constrain(deg, deg_0, deg_m);             //角度の範囲を制限
       int T_in = map(deg_in, deg_0, deg_m, TorMin, TorMax);  //角度をトルク値に変換
@@ -189,29 +193,24 @@ void loop() {
       } else if (Motor_rev > N_lim) {
         if (T_in > T_delta) {
           T_delta++;
-        } else if (T_delta > 0) {
+        } else if (T_delta > 2000) {
           T_delta--;
         }
       }
       int T_out = T_in - T_delta;
-      ///////*/
-      if (val > 140) {
-        buf_s[1] = 0xD1;
-      } else {
-        buf_s[1] = 0xD0;
-      }  //T_out;
-      //Serial.println(val,DEC);
+      ///////回転数リミッター
 
+      buf_s[1] = byte(T_out & 0xFF);
+      buf_s[2] = byte((T_out >> 8) & 0xF);
       sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);  //トルク値CAN送信
+
       if (sndStat == CAN_OK) {
-        /*int T_out2 = 0.5 * T_out;
+        int T_out2 = 0.5 * T_out;
         lcd.setCursor(11, 1);
         char TOR_lcd[5];
         dtostrf(T_out2, 2, 0, TOR_lcd);
         lcd.print(TOR_lcd);
         lcd.print(" Nm");
-        */
-        //Serial.println(buf_s[1]);
       } else {
         Serial.println("Torque : Error Sending Message...");
       }
