@@ -23,8 +23,8 @@ const int deg_0 = 20;          //APPS,作動開始角度
 const int deg_m = 40;          //APPS,作動限界角度
 const int TorMin = 2000;       //APPS,入力値下限, DEC:2000～2120, HEX:0x7d0～0x848, INV:0～60[Nm]
 const int TorMax = 2010;       //APPs,入力値上限
-int T_delta = 0;
-//const int N_lim = 1000;  //回転数limit[rpm]
+//int T_delta = 0;
+//const int N_lim = 500;  //回転数limit[rpm]
 
 void setup() {
   Serial.begin(9600);
@@ -40,11 +40,6 @@ void setup() {
   }
   lcd.init();       // initialize the lcd
   lcd.backlight();  // Turn on backlight
-  /*
-  Serial.print("limit: ");
-  Serial.print(N_lim);
-  Serial.println(" [rpm]");
-  */
 }
 
 void loop() {
@@ -99,11 +94,12 @@ void loop() {
 
       //モータ回転数[rpm]
       Motor_rev = (buf_r[2] << 8) | buf_r[1];
-      Motor_rev = Motor_rev - 14000;     //モータ回転数[rpm],オフセット-14000
-      int Motor_rev2 = Motor_rev / 100;  //LCDディスプレイ表示,100刻みで表示したい場合
+      Motor_rev = Motor_rev - 14000;  //モータ回転数[rpm],オフセット-14000
+
+      int Motor_rev2 = Motor_rev * 0.01;  //LCDディスプレイ表示,100刻みで表示したい場合
       lcd.setCursor(0, 1);
       char REV_lcd[5];
-      dtostrf(Motor_rev, 3, 0, REV_lcd);
+      dtostrf(Motor_rev2, 5, 0, REV_lcd);
       lcd.print(REV_lcd);
       lcd.print("00rpm");
 
@@ -188,7 +184,7 @@ void loop() {
       int deg = map(val, min, max, 0, 359);                  //アナログ入力値を角度に置き換え
       int deg_in = constrain(deg, deg_0, deg_m);             //角度の範囲を制限
       int T_in = map(deg_in, deg_0, deg_m, TorMin, TorMax);  //角度をトルク値に変換
-      /*
+                                                             /*
       ///////回転数リミッター
       if (T_delta > T_in) {
         T_delta = T_in;
@@ -200,20 +196,14 @@ void loop() {
         }
       }
       ///////回転数リミッター
-      */
-      int T_out = T_in - T_delta;
+*/
+      //int T_out = T_in - T_delta;
 
-      buf_s[1] = byte(T_out & 0xFF);
-      buf_s[2] = byte((T_out >> 8) & 0xF);
+      buf_s[1] = byte(T_in & 0xFF);
+      buf_s[2] = byte((T_in >> 8) & 0xF);
       sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);  //トルク値CAN送信
 
       if (sndStat == CAN_OK) {
-        int T_out2 = 0.5 * T_out;
-        lcd.setCursor(11, 1);
-        char TOR_lcd[5];
-        dtostrf(T_out2, 2, 0, TOR_lcd);
-        lcd.print(TOR_lcd);
-        lcd.print(" Nm");
       } else {
         Serial.println("Torque : Error Sending Message...");
       }
