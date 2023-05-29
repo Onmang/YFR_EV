@@ -23,7 +23,7 @@ const int deg_0 = 20;          //APPS,作動開始角度
 const int deg_m = 40;          //APPS,作動限界角度
 const int TorMin = 2000;       //APPS,入力値下限, DEC:2000～2120, HEX:0x7d0～0x848, INV:0～60[Nm]
 const int TorMax = 2010;       //APPs,入力値上限
-//int T_delta = 0;
+//int T_delta = TorMin;
 //const int N_lim = 500;  //回転数limit[rpm]
 
 void setup() {
@@ -184,7 +184,7 @@ void loop() {
       int deg = map(val, min, max, 0, 359);                  //アナログ入力値を角度に置き換え
       int deg_in = constrain(deg, deg_0, deg_m);             //角度の範囲を制限
       int T_in = map(deg_in, deg_0, deg_m, TorMin, TorMax);  //角度をトルク値に変換
-                                                             /*
+      /*
       ///////回転数リミッター
       if (T_delta > T_in) {
         T_delta = T_in;
@@ -196,7 +196,7 @@ void loop() {
         }
       }
       ///////回転数リミッター
-*/
+      */
       //int T_out = T_in - T_delta;
 
       buf_s[1] = byte(T_in & 0xFF);
