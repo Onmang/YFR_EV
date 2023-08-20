@@ -10,8 +10,6 @@ const int PREsend_PIN = 4;   //CPU1につなげるピン
 int Presta = 0;              //precharge実行したかを判断する, 1:実行済み，0：未実行
 int TS = 0;
 
-//void PreStop(void);  //割り込み関数
-
 void setup() {
   /*
   Serial.begin(9600);
@@ -42,30 +40,12 @@ void loop() {
       digitalWrite(PREsend_PIN, HIGH);  //Cpu1に送信
       Presta = 1;
     }
-
   } else if (TS == LOW) {
     digitalWrite(PRErelay_PIN, LOW);
     digitalWrite(AIR_PIN, LOW);
     digitalWrite(PREsend_PIN, LOW);
     Presta = 0;
   }
-/*
-  Serial.print("Presta: ");
-  Serial.print(Presta);
 
-
-  Serial.print(" ; precharge realy: ");
-  Serial.print(PRErelay_PIN);
-
-  Serial.print(" ; TS: ");
-  Serial.println(TS);
-*/
 }  //loop終了
-/*   
-void PreStop(void) {
-  digitalWrite(PRErelay_PIN, LOW);
-  digitalWrite(AIR_PIN, LOW);
-  digitalWrite(PREsend_PIN, LOW);
-  Presta = 0;
-}
-*/
+

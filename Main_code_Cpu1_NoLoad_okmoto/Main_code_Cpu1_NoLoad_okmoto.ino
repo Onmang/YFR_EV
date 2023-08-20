@@ -7,22 +7,22 @@
 
 #include <mcp_can.h>
 #include <SPI.h>
-#include <LiquidCrystal_I2C.h>
+//#include <LiquidCrystal_I2C.h>
 
-MCP_CAN CAN(10);                     //CAN通信ポート
-LiquidCrystal_I2C lcd(0x27, 16, 2);  //0x27のアドレス,16列2行のLCDを使用
+MCP_CAN CAN(10);  //CAN通信ポート
+//LiquidCrystal_I2C lcd(0x27, 16, 2);  //0x27のアドレス,16列2行のLCDを使用
 
-const int IGNSW_PIN = 2;      //IGNSWのデジタル入力ピン
+const int IGNSW_PIN = 5;      //IGNSWのデジタル入力ピン
 const int Precharge_PIN = 4;  //Precharge制御マイコンのデジタル入力ピン
 
-const int APPS_PIN = 0;        //APPS,アナログ入力ピン
+const int APPS_PIN = A4;       //APPS,アナログ入力ピン
 int val = 0;                   //APPS,アナログ入力の変数
-const float min = 1024 * 0.1;  //APPS,PST360-G2 出力関数：0°＝10%
-const float max = 1024 * 0.9;  //APPS,PST360-G2 出力関数：360°＝90%
-const int deg_0 = 20;          //APPS,作動開始角度
-const int deg_m = 40;          //APPS,作動限界角度
+const float MIN = 1024 * 0.1;  //APPS,PST360-G2 出力関数：0°＝10%
+const float MAX = 1024 * 0.9;  //APPS,PST360-G2 出力関数：360°＝90%
+const int deg_0 = 22;          //APPS,作動開始角度
+const int deg_m = 30;          //APPS,作動限界角度
 const int TorMin = 2000;       //APPS,入力値下限, DEC:2000～2120, HEX:0x7d0～0x848, INV:0～60[Nm]
-const int TorMax = 2010;       //APPs,入力値上限
+const int TorMax = 2120;       //APPs,入力値上限
 //int T_delta = TorMin;
 //const int N_lim = 500;  //回転数limit[rpm]
 
@@ -38,8 +38,8 @@ void setup() {
   } else {
     Serial.println("Can init fail");
   }
-  lcd.init();       // initialize the lcd
-  lcd.backlight();  // Turn on backlight
+  //lcd.init();       // initialize the lcd
+  //lcd.backlight();  // Turn on backlight
 }
 
 void loop() {
@@ -72,19 +72,20 @@ void loop() {
         bitClear(Op_status, n);  //LSBから6-7ビット目を「0」ビットにする
       }
       Op_status = Op_status >> 3;
-      lcd.setCursor(0, 0);  //LCDディスプレイ表示
+      //lcd.setCursor(0, 0);  //LCDディスプレイ表示
+      
       if (Op_status == B000) {
-        lcd.print("INT");  //init
+        Serial.print("INT   ");  //init
       } else if (Op_status == B001) {
-        lcd.print("PRE");  //Precharge
+        Serial.print("PRE   ");  //Precharge
       } else if (Op_status == B010) {
-        lcd.print("STB");  //Standby
+        Serial.print("STB   ");  //Standby
       } else if (Op_status == B011) {
-        lcd.print("TOR");  //Torque control
+        Serial.print("TOR   ");  //Torque control
       } else if (Op_status == B111) {
-        lcd.print("DIS");  //Rapid discharge
+        Serial.print("DIS   ");  //Rapid discharge
       }
-
+      
       //ゲート駆動状態
       Gate_sta = buf_r[0];
       for (int i = 3; i < 8; i++) {
@@ -95,13 +96,14 @@ void loop() {
       //モータ回転数[rpm]
       Motor_rev = (buf_r[2] << 8) | buf_r[1];
       Motor_rev = Motor_rev - 14000;  //モータ回転数[rpm],オフセット-14000
-
+      /*
       int Motor_rev2 = Motor_rev * 0.01;  //LCDディスプレイ表示,100刻みで表示したい場合
       lcd.setCursor(0, 1);
       char REV_lcd[5];
       dtostrf(Motor_rev2, 5, 0, REV_lcd);
       lcd.print(REV_lcd);
       lcd.print("00rpm");
+      */
 
       //モータ相電流
       Motor_cur = (buf_r[4] << 8) | buf_r[3];  //モータ相電流3byteと4byteを結合
@@ -109,6 +111,9 @@ void loop() {
         bitClear(Motor_cur, m);  //LSBから10-15ビット目を「0」ビットにする
       }
       Motor_cur = Motor_cur;  //モータ相電流[Arms]
+      //Serial.print("Motor current:");
+      //Serial.print(Motor_cur);
+      //Serial.print(" [Arms];  ");
 
       //モータ電圧
       Voltage = (buf_r[5] << 8) | buf_r[4];  //モータ電圧4byteと5byteを結合
@@ -116,14 +121,41 @@ void loop() {
         bitClear(Voltage, j);  //LSBから12-15ビット目を「0」ビットにする
       }
       Voltage = Voltage >> 2;  //モータ電圧[V]
+      //Serial.print("Volatge:");
+      //Serial.print(Voltage);
+      //Serial.print(" [V];  ");
+
+      //Serial.print("Power:");
+      //Serial.print(Voltage * Motor_cur);
+      //Serial.print("[W];  ");
+      //Serial.println("");
+      /*
       lcd.setCursor(11, 0);    //LCDディスプレイ表示
       char VOL_lcd[5];
       dtostrf(Voltage, 3, 0, VOL_lcd);
       lcd.print(VOL_lcd);
       lcd.print(" V");
+      */
 
       //異常状態 信号
       Anomaly_sig = buf_r[7] >> 5;  //異常状態 信号
+      if (1) {
+        Serial.print("Error: ");
+        if (Anomaly_sig == B000) {
+          Serial.print("No Error;  ");
+        } else if (Anomaly_sig == B001) {
+          Serial.print("power limit;  ");  //derating, モータ出力制限
+        } else if (Anomaly_sig == B010) {
+          Serial.print("Warning;  ");
+        } else if (Anomaly_sig == B100) {
+          Serial.print("Error;  ");
+        } else if (Anomaly_sig == B101) {
+          Serial.print("Critical Error;  ");
+        } else {
+          Serial.print("--;  ");  //--:Reserved
+        }
+      }
+      Serial.println();
     } else if (id == 0x321) {       //ID:801
       // 温度
       short INV_deg = buf_r[0] - 40;  //インバータ温度[℃],オフセット-40
@@ -179,9 +211,9 @@ void loop() {
       //"トルク値CAN送信プログラム"
       // トルク送信値の範囲⇒DEC:2000～2120, HEX:0x7d0～0x848
       byte buf_s[] = { 0x01, 0xD0, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00 };  //0byte目はMG-ECU:on, Co放電要求:off 固定
-
+      
       val = analogRead(APPS_PIN);
-      int deg = map(val, min, max, 0, 359);                  //アナログ入力値を角度に置き換え
+      int deg = map(val, MIN, MAX, 0, 359);                  //アナログ入力値を角度に置き換え
       int deg_in = constrain(deg, deg_0, deg_m);             //角度の範囲を制限
       int T_in = map(deg_in, deg_0, deg_m, TorMin, TorMax);  //角度をトルク値に変換
       /*
@@ -201,16 +233,20 @@ void loop() {
 
       buf_s[1] = byte(T_in & 0xFF);
       buf_s[2] = byte((T_in >> 8) & 0xF);
+      
       sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);  //トルク値CAN送信
 
       if (sndStat == CAN_OK) {
+        //Serial.println();
       } else {
         Serial.println("Torque : Error Sending Message...");
       }
-    } else if (Op_status == B001) {  //Precharge状態
+    } 
+    else if (Op_status == B001) {  //Precharge状態
       int Presta = digitalRead(Precharge_PIN);
-      if (Presta == HIGH) {  //Cpu5:precharge制御は完了か？
-        if (ECUsta != 1) {   //MG-ECU"ON"ではないなら以下を実行
+
+      if (Presta == LOW) {  //Cpu5:precharge制御は完了か？
+        if (ECUsta != 1) {  //MG-ECU"ON"ではないなら以下を実行
           //"MG-ECU"ON"送信"
           byte buf_s[] = { 0x01, 0xD0, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00 };
           sndStat = CAN.sendMsgBuf(0x301, 0, 8, buf_s);  //ID, 標準フレーム:0, データ長:8
