@@ -37,6 +37,9 @@ const int deg_m = 40;              //APPS,作動限界角度
 const int TorMin = 2000;           //APPS,入力値下限, DEC:2000～2120, HEX:0x7d0～0x848, INV:0～60[Nm]
 const int TorMax = 2120;           //APPs,入力値上限
 
+//ファン稼働のしきい値温度
+short Deg_Val = 50;     //[℃]
+const int Fan_PIN = 6;  //ファンの制御ピン，アナログでPWM制御してもok
 //回転数リミッターの変数
 //int T_delta = TorMin;
 //const int N_lim = 9000;  //回転数limit[rpm]
@@ -51,7 +54,7 @@ void setup() {
   pinMode(RtoD_PIN, INPUT);
   pinMode(RtoDLED_PIN, OUTPUT);
   pinMode(Brake_PIN, INPUT);
-
+  pinMode(Fan_PIN, OUTPUT);
 
   if (CAN.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ) == CAN_OK) {
     //CAN.begin(IDの種類, canの通信速度, モジュールとの通信レート（ex:水晶発振子の周波数）)
@@ -218,6 +221,14 @@ void loop() {
       //"トルク制限値"は必要ないので処理しない
     }
   }
+
+  //ファンのON,OFF
+  if (Deg_Val < INV_deg || Deg_Val < Mo_deg) {
+    digitalWrite(Fan_PIN, HIGH);
+  } else {
+    digitalWrite(Fan_PIN, LOW);
+  }
+
   //IGNSWの状態分岐，HIGH or LOW
   if (IGNSWsta == LOW) {
     digitalWrite(PreLED_PIN, LOW);                                        //PrechargeLED : OFF (-)
@@ -277,7 +288,7 @@ void loop() {
       APPS_val_1 = analogRead(APPS_PIN_1);
       APPS_val_2 = analogRead(APPS_PIN_2);
 
-      int deg = map(APPS_val_1, min_val, max_val, 0, 359);     //アナログ入力値を角度に置き換え
+      int deg = map(APPS_val_1, min_val, max_val, 0, 359);   //アナログ入力値を角度に置き換え
       int deg_in = constrain(deg, deg_0, deg_m);             //角度の範囲を制限
       int T_in = map(deg_in, deg_0, deg_m, TorMin, TorMax);  //角度をトルク値に変換
 
